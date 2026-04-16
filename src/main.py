@@ -4,10 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
 
-
-class TextInput(BaseModel):
-    text_input: str
-
 app = FastAPI(
     title="FreeAPI",
     description="A Free and open source api for everyone.",
@@ -68,8 +64,8 @@ def text_count_paragraphs(text: str):
 
 ## Password
 @app.post("/text/password/strength", tags=["Text", "Password"])
-def text_password_strength(payload: TextInput):
-    return text.password_strength(payload.text_input)
+def text_password_strength(password: str):
+    return text.password_strength(password)
 
 @app.post("/text/password/generate", tags=["Text", "Password"])
 def text_password_generate(length: int = 12, charset: str = None):
@@ -88,7 +84,7 @@ def get_unix_timestamp():
     return datetime.unix_timestamp()
 
 @app.get("/datetime/format", tags=["Date", "Time"])
-def format_time(timestamp: int = int(time.time()), format: str = "%Y-%m-%d %H:%M:%S", timezone: str = "UTC"):
+def format_time(timestamp: int = int(time()), format: str = "%Y-%m-%d %H:%M:%S", timezone: str = "UTC"):
     return datetime.format_time(timestamp, format, timezone)
 
 @app.get("/datetime/timezones", tags=["Date", "Time"])
@@ -96,7 +92,7 @@ def get_timezones():
     return datetime.get_timezones()
 
 @app.get("/datetime/convert_timezone", tags=["Date", "Time"])
-def convert_timezone(timestamp: int = int(time.time()), from_tz: str = "UTC", to_tz: str = "UTC"):
+def convert_timezone(timestamp: int = int(time()), from_tz: str = "UTC", to_tz: str = "UTC"):
     return datetime.convert_timezone(timestamp, from_tz, to_tz)
 
 @app.get("/datetime/time_difference", tags=["Date", "Time"])
@@ -108,9 +104,9 @@ def is_leap_year(year: int):
     return datetime.is_leap_year(year)
 
 @app.get("/datetime/day_of_week", tags=["Date", "Time"])
-def day_of_week(timestamp: int = int(time.time()), timezone: str = "UTC"):
+def day_of_week(timestamp: int = int(time()), timezone: str = "UTC"):
     return datetime.day_of_week(timestamp, timezone)
 
 @app.get("/datetime/summer_time", tags=["Date", "Time"])
-def summer_time(timestamp: int = int(time.time()), timezone: str = "UTC"):
+def summer_time(timestamp: int = int(time()), timezone: str = "UTC"):
     return datetime.summer_time(timestamp, timezone)

@@ -1,0 +1,29 @@
+name: Documentation
+description: Report a documentation gap or request a docs update.
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for missing, unclear, or outdated documentation.
+  - type: textarea
+    id: location
+    attributes:
+      label: Documentation location
+      description: Which page or section needs attention?
+      placeholder: README.md, CONTRIBUTING.md, API docs, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or missing?
+      description: Explain the documentation problem.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+      description: Share the update you would like to see.

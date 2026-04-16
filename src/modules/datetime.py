@@ -1,11 +1,12 @@
 # TIME AND DATE
+# Maintainer(s): SzaBee13
+# Contributor(s): SzaBee13
 from datetime import datetime
 import time
 import pytz
 
 def unix_timestamp() -> dict:
   """Returns the current UNIX timestamp."""
-  import time
   return { "unix_timestamp": int(time.time()) }
 
 def format_time(timestamp: int = int(time.time()), format: str = "%Y-%m-%d %H:%M:%S", timezone: str = "UTC") -> dict:
