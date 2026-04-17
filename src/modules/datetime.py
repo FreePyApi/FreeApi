@@ -1,4 +1,4 @@
-# TIME AND DATE
+# DateTime
 # Maintainer(s): SzaBee13
 # Contributor(s): SzaBee13
 from datetime import datetime

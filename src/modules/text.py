@@ -1,4 +1,4 @@
-# TEXT
+# Text
 # Maintainer(s): SzaBee13
 # Contributor(s): SzaBee13
 
@@ -31,6 +31,8 @@ def count(text: str) -> dict:
 ## Password
 # DATA DISCLAIMER
 # WE DO NOT STORE ANY PASSWORDS. ALL PASSWORDS ARE PROCESSED IN-MEMORY AND NEVER LOGGED OR STORED IN ANY WAY. THIS MODULE IS FOR EVALUATION AND GENERATION PURPOSES ONLY. USE WITH CAUTION AND NEVER INPUT REAL PASSWORDS.
+import random
+import string
 
 def password_strength(password: str) -> dict:
   """Evaluates the strength of a given password."""
@@ -52,8 +54,6 @@ def password_strength(password: str) -> dict:
     
 def generate_password(length: int = 12, charset: str = None) -> dict:
   """Generates a random password of a given length."""
-  import random
-  import string
 
   if charset is None:
     characters = string.ascii_letters + string.digits + string.punctuation
@@ -67,3 +67,44 @@ def password_disclaimer() -> dict:
   return {
     "disclaimer": "WE DO NOT STORE ANY PASSWORDS. ALL PASSWORDS ARE PROCESSED IN-MEMORY AND NEVER LOGGED OR STORED IN ANY WAY. THIS MODULE IS FOR EVALUATION AND GENERATION PURPOSES ONLY. USE WITH CAUTION AND NEVER INPUT REAL PASSWORDS."
   }
+
+## Formatting
+import re
+
+def slugify(text: str) -> dict:
+  """Converts a given text into a URL-friendly slug."""
+  slug = re.sub(r'[\W_]+', '-', text.lower()).strip('-')
+  return { "slug": slug }
+
+def camel_case(text: str) -> dict:
+  """Converts a given text into camelCase."""
+  words = re.split(r'[\W_]+', text)
+  camel = words[0].lower() + ''.join(word.capitalize() for word in words[1:])
+  return { "camelCase": camel }
+
+def snake_case(text: str) -> dict:
+  """Converts a given text into snake_case."""
+  snake = re.sub(r'[\W]+', '_', text.lower()).strip('_')
+  return { "snake_case": snake }
+
+def pascal_case(text: str) -> dict:
+  """Converts a given text into PascalCase."""
+  words = re.split(r'[\W_]+', text)
+  pascal = ''.join(word.capitalize() for word in words)
+  return { "PascalCase": pascal }
+
+## Other
+
+def lorem_ipsum(length: int = 100) -> dict:
+  """Generates a Lorem Ipsum placeholder text of a given length."""
+  lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  return { "lorem_ipsum": (lorem * (length // len(lorem) + 1))[:length] }
+
+def random_string(length: int = 12, charset: str = None) -> dict:
+  """Generates a random string of a given length."""
+  if charset is None:
+    characters = string.ascii_letters + string.digits
+  else:
+    characters = charset
+  random_str = ''.join(random.choice(characters) for _ in range(length))
+  return { "random_string": random_str }
