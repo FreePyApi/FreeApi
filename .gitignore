@@ -18,3 +18,14 @@ Thumbs.db
 *.zip
 *.tar.gz
 archive/
+
+# Vercel
+.vercel/
+.env.vercel
+.env.vercel.local
+
+# Logs and temporary files
+logs/
+tmp/
+*.log
+*.tmp

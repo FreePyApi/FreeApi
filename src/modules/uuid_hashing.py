@@ -13,6 +13,34 @@ def generate_uuid(version: int) -> dict:
   else:
     return { "error": "Unsupported UUID version. Use 4 or 7." }
 
+def validate_uuid(uuid_string: str) -> dict:
+  """Validates if a given string is a valid UUID."""
+  try:
+    val = uuid.UUID(uuid_string, version=4)
+    return { "is_valid": True }
+  except ValueError:
+    return { "is_valid": False }
+
+def decode_uuid(uuid_string: str) -> dict:
+  """Decodes a UUID string into its components."""
+  try:
+    val = uuid.UUID(uuid_string)
+    return {
+      "hex": val.hex,
+      "int": val.int,
+      "version": val.version,
+      "variant": val.variant,
+      "fields": val.fields,
+      "time_low": val.time_low,
+      "time_mid": val.time_mid,
+      "time_hi_version": val.time_hi_version,
+      "clock_seq_hi_variant": val.clock_seq_hi_variant,
+      "clock_seq_low": val.clock_seq_low,
+      "node": val.node
+    }
+  except ValueError:
+    return { "error": "Invalid UUID string." }
+
 def hash_string(text: str, algorithm: str = "sha256") -> dict:
   """Hashes a given string using the specified algorithm."""
   if algorithm == "md5":
