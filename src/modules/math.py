@@ -31,8 +31,8 @@ CONVERSION_TABLE = {
   # Volume
   "liter_to_gallon": 0.264172,
   "gallon_to_liter": 3.78541,
-  "ml_to_oz": 0.033814,
-  "oz_to_ml": 29.5735,
+  "ml_to_floz": 0.033814,
+  "floz_to_ml": 29.5735,
   "liter_to_cup": 4.22675,
   "cup_to_liter": 0.236588,
   "liter_to_pint": 2.11338,
@@ -117,7 +117,7 @@ def random_number(min: int = 0, max: int = 100) -> dict:
   """Generates a random number between min and max."""
   if min > max:
     return { "error": "Minimum value cannot be greater than maximum value." }
-  return { "random_number": randint(min, max+1) }
+  return { "random_number": randint(min, max) }
 
 def fibonacci(n: int) -> dict:
   """Generates the Fibonacci sequence up to the nth number."""

@@ -53,3 +53,7 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
 This will start the API, and it will be accessible at `http://localhost:8000`.
+
+## API Documentation
+
+The API documentation is available at `http://localhost:8000/docs` when you run the API locally. It provides detailed information about the available endpoints, request parameters, and response formats. You can also access the documentation online at [freeapi.szabee.me/docs](https://freeapi.szabee.me/docs).

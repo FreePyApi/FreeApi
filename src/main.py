@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 # from pydantic import BaseModel
@@ -66,7 +66,7 @@ def text_count_paragraphs(text: str):
 
 # Password
 @app.post("/text/password/strength", tags=["Text/Password"])
-def text_password_strength(password: str):
+def text_password_strength(password: str = Body(..., embed=True)):
   return mtext.password_strength(password)
 
 @app.post("/text/password/generate", tags=["Text/Password"])
@@ -78,25 +78,21 @@ def text_password_disclaimer():
   return mtext.password_disclaimer()
 
 # Formatting
-@app.post("/text/formatting/slugify", tags="Text/Formatting")
+@app.post("/text/formatting/slugify", tags=["Text/Formatting"])
 def text_format_slugify(text: str):
   return mtext.slugify(text=text)
 
-@app.post("/text/formatting/camel_case", tags="Text/Formatting")
+@app.post("/text/formatting/camel_case", tags=["Text/Formatting"])
 def text_camel_case(text: str):
   return mtext.camel_case(text=text)
 
-@app.post("/text/formatting/pascal_case", tags="Text/Formatting")
+@app.post("/text/formatting/pascal_case", tags=["Text/Formatting"])
 def text_pascal_case(text: str):
   return mtext.pascal_case(text=text)
 
-@app.post("/text/formatting/camel_case", tags="Text/Formatting")
-def text_camel_case(text: str):
-  return mtext.camel_case(text=text)
-
 # Other
-@app.get("/text/lorem_ipsum/{length}", tags="Text/Other")
-def text_lorem_ipsum(length: str):
+@app.get("/text/lorem_ipsum/{length}", tags=["Text/Other"])
+def text_lorem_ipsum(length: int):
   return mtext.lorem_ipsum(length=length)
 
 #####################
@@ -110,7 +106,9 @@ def get_unix_timestamp():
   return mdatetime.unix_timestamp()
 
 @app.get("/datetime/format", tags=["DateTime"])
-def format_time(timestamp: int = int(time()), format: str = "%Y-%m-%d %H:%M:%S", timezone: str = "UTC"):
+def format_time(timestamp: int | None = None, format: str = "%Y-%m-%d %H:%M:%S", timezone: str = "UTC"):
+  if timestamp is None:
+    timestamp = int(time())
   return mdatetime.format_time(timestamp, format, timezone)
 
 @app.get("/datetime/timezones", tags=["DateTime"])
@@ -118,7 +116,9 @@ def get_timezones():
   return mdatetime.get_timezones()
 
 @app.get("/datetime/convert_timezone", tags=["DateTime"])
-def convert_timezone(timestamp: int = int(time()), from_tz: str = "UTC", to_tz: str = "UTC"):
+def convert_timezone(timestamp: int | None = None, from_tz: str = "UTC", to_tz: str = "UTC"):
+  if timestamp is None:
+    timestamp = int(time())
   return mdatetime.convert_timezone(timestamp, from_tz, to_tz)
 
 @app.get("/datetime/time_difference", tags=["DateTime"])
@@ -130,11 +130,15 @@ def is_leap_year(year: int):
   return mdatetime.is_leap_year(year)
 
 @app.get("/datetime/day_of_week", tags=["DateTime"])
-def day_of_week(timestamp: int = int(time()), timezone: str = "UTC"):
+def day_of_week(timestamp: int | None = None, timezone: str = "UTC"):
+  if timestamp is None:
+    timestamp = int(time())
   return mdatetime.day_of_week(timestamp, timezone)
 
 @app.get("/datetime/summer_time", tags=["DateTime"])
-def summer_time(timestamp: int = int(time()), timezone: str = "UTC"):
+def summer_time(timestamp: int | None = None, timezone: str = "UTC"):
+  if timestamp is None:
+    timestamp = int(time())
   return mdatetime.summer_time(timestamp, timezone)
 
 #####################

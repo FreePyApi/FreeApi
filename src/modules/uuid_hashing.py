@@ -1,6 +1,7 @@
 # UUID and Hashing
 # Maintainer(s): SzaBee13
 # Contributor(s): SzaBee13
+import base64
 import uuid
 import hashlib
 
@@ -9,15 +10,17 @@ def generate_uuid(version: int) -> dict:
   if version == 4:
     return { "uuid": str(uuid.uuid4()) }
   elif version == 7:
-    return { "uuid": str(uuid.uuid7()) }
+    if hasattr(uuid, "uuid7"):
+      return { "uuid": str(uuid.uuid7()) }
+    return { "error": "UUID version 7 is not supported by this Python runtime." }
   else:
     return { "error": "Unsupported UUID version. Use 4 or 7." }
 
 def validate_uuid(uuid_string: str) -> dict:
-  """Validates if a given string is a valid UUID."""
+  """Validates if a given string is a valid version 4 UUID."""
   try:
-    val = uuid.UUID(uuid_string, version=4)
-    return { "is_valid": True }
+    val = uuid.UUID(uuid_string)
+    return { "is_valid": val.version == 4 }
   except ValueError:
     return { "is_valid": False }
 
@@ -56,13 +59,13 @@ def hash_string(text: str, algorithm: str = "sha256") -> dict:
 
 def base64_encode(text: str) -> dict:
   """Encodes a given string into Base64."""
-  encoded = text.encode('utf-8').hex()
+  encoded = base64.b64encode(text.encode('utf-8')).decode('ascii')
   return { "base64_encoded": encoded }
 
 def base64_decode(encoded_text: str) -> dict:
   """Decodes a given Base64 string."""
   try:
-    decoded = bytes.fromhex(encoded_text).decode('utf-8')
+    decoded = base64.b64decode(encoded_text, validate=True).decode('utf-8')
     return { "base64_decoded": decoded }
-  except Exception as e:
+  except (ValueError, base64.binascii.Error) as e:
     return { "error": f"Invalid Base64 string: {str(e)}" }

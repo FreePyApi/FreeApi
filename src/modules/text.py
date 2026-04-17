@@ -91,7 +91,7 @@ def pascal_case(text: str) -> dict:
   """Converts a given text into PascalCase."""
   words = re.split(r'[\W_]+', text)
   pascal = ''.join(word.capitalize() for word in words)
-  return { "PascalCase": pascal }
+  return { "pascal_case": pascal }
 
 ## Other
 
