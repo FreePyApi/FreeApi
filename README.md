@@ -1,6 +1,6 @@
-# FreeAPI
-
 <div align="center">
+  <h1>FreeApi</h1>
+  
   <img alt="GitHub License" src="https://img.shields.io/github/license/FreePyApi/FreeApi">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/FreePyApi/FreeApi">
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/FreePyApi/FreeApi/total">
