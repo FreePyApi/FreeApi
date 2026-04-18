@@ -1,7 +1,9 @@
 services:
   api:
     name: freeapi
-    image: ghcr.io/freepyapi/freeapi:local
+    image: ghcr.io/freepyapi/freeapi:latest
+    environment:
+      - FREEAPI_CURRENT_VERSION=1.0.0
     ports:
       - "8000:8000"
     restart: unless-stopped

@@ -5,10 +5,13 @@ __pycache__/
 *.pyc
 dist/
 build/
+.pytest_cache/
 
 # IDE and editor files
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
+.pycharm/
 
 # OS-specific files
 .DS_Store
@@ -18,3 +21,18 @@ Thumbs.db
 *.zip
 *.tar.gz
 archive/
+
+# Vercel
+.vercel/
+.env.vercel
+
+# Logs and temporary files
+logs/
+tmp/
+*.log
+*.tmp
+
+# dotenv
+.env
+.env.local
+.env.*.local

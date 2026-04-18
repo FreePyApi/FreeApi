@@ -1,0 +1,37 @@
+{
+	"version": 2,
+	"builds": [
+		{
+			"src": "src/main.py",
+			"use": "@vercel/python"
+		}
+	],
+	"redirects": [
+		{
+			"source": "/",
+			"destination": "/v1.0.0/",
+			"permanent": false
+		},
+		{
+			"source": "/docs",
+			"destination": "/v1.0.0/docs",
+			"permanent": false
+		},
+		{
+			"source": "/redoc",
+			"destination": "/v1.0.0/redoc",
+			"permanent": false
+		},
+		{
+			"source": "/openapi.json",
+			"destination": "/v1.0.0/openapi.json",
+			"permanent": false
+		}
+	],
+	"routes": [
+		{
+			"src": "/(.*)",
+			"dest": "src/main.py"
+		}
+	]
+}
