@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 	&& pip install --no-cache-dir -r requirements.txt
 
 COPY src ./src
-COPY archive ./archive
+COPY archives ./archive
 
 RUN chown -R app:app /app
 
