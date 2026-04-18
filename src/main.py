@@ -1,7 +1,10 @@
 from fastapi import Body, FastAPI, Request, HTTPException, Query, Path as ParamPath
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+import importlib.util
+import os
 from pathlib import Path
+import re
 from typing import Optional
 
 from .middleware.rate_limit import RateLimitMiddleware
@@ -15,10 +18,15 @@ from .security import (
   is_rate_limit_enabled,
 )
 
+CURRENT_API_VERSION = os.getenv("FREEAPI_CURRENT_VERSION", "1.0.0")
+CURRENT_API_PREFIX = f"/v{CURRENT_API_VERSION}"
+VERSION_PATH_RE = re.compile(r"^/v\d+\.\d+\.\d+(?:/|$)")
+
 app = FastAPI(
   title="FreeAPI",
   description="A Free and open source api for everyone.",
-  version="1.0.0",
+  version=CURRENT_API_VERSION,
+  servers=[{"url": CURRENT_API_PREFIX, "description": "Latest stable API"}],
   docs_url="/docs",
   redoc_url="/redoc",
   openapi_url="/openapi.json",
@@ -41,13 +49,16 @@ async def enforce_authentication(request: Request, call_next):
     return denied
   return await call_next(request)
 
+@app.get("/", tags=["Root"])
+def root():
+  return {"message": "Welcome to the FreeAPI!", "version": f"v{CURRENT_API_VERSION}", "documentation": f"{CURRENT_API_PREFIX}/docs" }
 
-@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.ico", include_in_schema=False, tags=["Assets"])
 def favicon_ico():
   return FileResponse(ASSETS_DIR / "favicon.png")
 
 
-@app.get("/favicon.svg", include_in_schema=False)
+@app.get("/favicon.svg", include_in_schema=False, tags=["Assets"])
 def favicon_svg():
   return FileResponse(ASSETS_DIR / "favicon.svg")
 
@@ -281,3 +292,73 @@ def random_number(min: int = Query(0, ge=-2147483648), max: int = Query(100, ge=
 @app.get("/math/fibonacci", tags=["Math"])
 def fibonacci(n: int = Query(..., ge=0, le=10000)):
   return mmath.fibonacci(n=n)
+
+
+def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
+  loaded_apps: list[tuple[str, FastAPI]] = []
+  if not archive_root.is_dir():
+    return loaded_apps
+
+  for version_dir in sorted(archive_root.iterdir()):
+    if not version_dir.is_dir() or not VERSION_PATH_RE.match(f"/{version_dir.name}/"):
+      continue
+
+    version_prefix = f"/{version_dir.name}"
+    if version_prefix == CURRENT_API_PREFIX:
+      continue
+
+    main_file = version_dir / "main.py"
+    if not main_file.is_file():
+      continue
+
+    module_name = f"archive_{version_dir.name.replace('.', '_')}_main"
+    spec = importlib.util.spec_from_file_location(module_name, main_file)
+    if spec is None or spec.loader is None:
+      continue
+
+    module = importlib.util.module_from_spec(spec)
+    try:
+      spec.loader.exec_module(module)
+    except Exception:
+      continue
+
+    archive_app = getattr(module, "app", None)
+    if isinstance(archive_app, FastAPI):
+      loaded_apps.append((version_prefix, archive_app))
+
+  return loaded_apps
+
+
+def _build_versioned_gateway(current_app: FastAPI) -> FastAPI:
+  gateway_app = FastAPI(
+    title="FreeAPI Gateway",
+    description="Version gateway for FreeAPI.",
+    version=CURRENT_API_VERSION,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+  )
+
+  @gateway_app.middleware("http")
+  async def redirect_to_latest_version(request: Request, call_next):
+    path = request.url.path
+    if VERSION_PATH_RE.match(path):
+      return await call_next(request)
+
+    target_path = f"{CURRENT_API_PREFIX}{path}" if path != "/" else f"{CURRENT_API_PREFIX}/"
+    query = request.url.query
+    if query:
+      target_path = f"{target_path}?{query}"
+
+    return RedirectResponse(url=target_path, status_code=307)
+
+  gateway_app.mount(CURRENT_API_PREFIX, current_app)
+
+  archive_root = BASE_DIR.parent / "archive"
+  for version_prefix, archive_app in _load_archive_apps(archive_root):
+    gateway_app.mount(version_prefix, archive_app)
+
+  return gateway_app
+
+
+app = _build_versioned_gateway(app)
