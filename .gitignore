@@ -10,6 +10,7 @@ build/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.pycharm/
 
 # OS-specific files
 .DS_Store
