@@ -101,7 +101,7 @@ def text_lorem_ipsum(length: int):
 from .modules import datetime as mdatetime
 from time import time
 
-@app.get("/datetime/unix_timestamp", tags=["DateTime"])
+@app.get("/datetime/unix", tags=["DateTime"])
 def get_unix_timestamp():
   return mdatetime.unix_timestamp()
 
@@ -115,7 +115,7 @@ def format_time(timestamp: int | None = None, format: str = "%Y-%m-%d %H:%M:%S",
 def get_timezones():
   return mdatetime.get_timezones()
 
-@app.get("/datetime/convert_timezone", tags=["DateTime"])
+@app.get("/datetime/convert/timezone", tags=["DateTime"])
 def convert_timezone(timestamp: int | None = None, from_tz: str = "UTC", to_tz: str = "UTC"):
   if timestamp is None:
     timestamp = int(time())
@@ -182,11 +182,11 @@ def uuid_decode(uuid_string: str):
 def hash_string(text: str, algorithm: str = "sha256"):
   return muuid_hashing.hash_string(text=text, algorithm=algorithm)
 
-@app.post("/hash/base64_encode", tags=["UUID and Hashing"])
+@app.post("/hash/base64/encode", tags=["UUID and Hashing"])
 def base64_encode(text: str):
   return muuid_hashing.base64_encode(text=text)
 
-@app.post("/hash/base64_decode", tags=["UUID and Hashing"])
+@app.post("/hash/base64/decode", tags=["UUID and Hashing"])
 def base64_decode(encoded_text: str):
   return muuid_hashing.base64_decode(encoded_text=encoded_text)
 
@@ -195,11 +195,11 @@ def base64_decode(encoded_text: str):
 #####################
 from .modules import math as mmath
 
-@app.post("/math/convert_units", tags=["Math", "Units"])
+@app.post("/math/units/convert", tags=["Math", "Units"])
 def convert_units(value: float, conversion_type: str, return_format: str):
   return mmath.convert_units(value=value, conversion_type=conversion_type, return_format=return_format)
 
-@app.get("/math/conversion_types", tags=["Math", "Units"])
+@app.get("/math/units/types", tags=["Math", "Units"])
 def get_conversion_types():
   return mmath.get_conversion_types()
 

@@ -31,7 +31,7 @@ def count(text: str) -> dict:
 
 ## Password
 # DATA DISCLAIMER
-# WE DO NOT STORE ANY PASSWORDS. ALL PASSWORDS ARE PROCESSED IN-MEMORY AND NEVER LOGGED OR STORED IN ANY WAY. THIS MODULE IS FOR EVALUATION AND GENERATION PURPOSES ONLY. USE WITH CAUTION AND NEVER INPUT REAL PASSWORDS.
+# WE DO NOT STORE ANY PASSWORDS. ALL PASSWORDS ARE PROCESSED IN-MEMORY AND NEVER LOGGED OR STORED IN ANY WAY. THIS MODULE IS FOR EVALUATION AND GENERATION PURPOSES ONLY. USE WITH CAUTION AND NEVER INPUT REAL PASSWORDS. WE ARE NOT RESPONSIBLE FOR ANY DAMAGE OR LOSS CAUSED BY THE USE OF THIS MODULE. ALWAYS USE STRONG, UNIQUE PASSWORDS AND NEVER SHARE THEM WITH ANYONE.
 import random
 import string
 
@@ -66,7 +66,7 @@ def generate_password(length: int = 12, charset: str = None) -> dict:
 def password_disclaimer() -> dict:
   """Returns a disclaimer about password handling."""
   return {
-    "disclaimer": "WE DO NOT STORE ANY PASSWORDS. ALL PASSWORDS ARE PROCESSED IN-MEMORY AND NEVER LOGGED OR STORED IN ANY WAY. THIS MODULE IS FOR EVALUATION AND GENERATION PURPOSES ONLY. USE WITH CAUTION AND NEVER INPUT REAL PASSWORDS."
+    "disclaimer": "WE DO NOT STORE ANY PASSWORDS. ALL PASSWORDS ARE PROCESSED IN-MEMORY AND NEVER LOGGED OR STORED IN ANY WAY. THIS MODULE IS FOR EVALUATION AND GENERATION PURPOSES ONLY. USE WITH CAUTION AND NEVER INPUT REAL PASSWORDS. WE ARE NOT RESPONSIBLE FOR ANY DAMAGE OR LOSS CAUSED BY THE USE OF THIS MODULE. ALWAYS USE STRONG, UNIQUE PASSWORDS AND NEVER SHARE THEM WITH ANYONE."
   }
 
 ## Formatting
@@ -98,7 +98,7 @@ def pascal_case(text: str) -> dict:
 
 def lorem_ipsum(length: int = 100) -> dict:
   """Generates a Lorem Ipsum placeholder text of a given length."""
-  lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
   return { "lorem_ipsum": (lorem * (length // len(lorem) + 1))[:length] }
 
 def random_string(length: int = 12, charset: str = None) -> dict:

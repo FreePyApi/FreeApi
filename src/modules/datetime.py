@@ -7,7 +7,6 @@ import time
 import pytz
 import socket
 import struct
-from typing import Optional
 import dotenv
 import os
 
