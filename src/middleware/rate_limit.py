@@ -3,7 +3,6 @@ import asyncio
 from typing import Dict
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-
 class RateLimitMiddleware:
   def __init__(self, app: ASGIApp, *, max_requests: int = 60, window_seconds: int = 60):
     self.app = app

@@ -41,7 +41,9 @@ app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 if is_rate_limit_enabled():
   app.add_middleware(RateLimitMiddleware, max_requests=120, window_seconds=60)
 
-
+#########################
+# Authentication Middleware
+#########################
 @app.middleware("http")
 async def enforce_authentication(request: Request, call_next):
   denied = auth_guard(request)
@@ -49,6 +51,9 @@ async def enforce_authentication(request: Request, call_next):
     return denied
   return await call_next(request)
 
+#########################
+# Root and Utility Endpoints
+#########################
 @app.get("/", tags=["Root"])
 def root():
   return {"message": "Welcome to the FreeAPI!", "version": f"v{CURRENT_API_VERSION}", "documentation": f"{CURRENT_API_PREFIX}/docs" }
@@ -71,7 +76,9 @@ def get_status():
 def get_github():
   return {"github_repo": "https://github.com/FreePyApi/FreeApi", "github_organization": "https://github.com/FreePyApi" }
 
-
+#########################
+# Authentication Endpoints
+#########################
 @app.get("/auth/status", tags=["Auth"])
 def auth_status():
   return {
@@ -102,9 +109,9 @@ def auth_me(request: Request):
     raise HTTPException(status_code=401, detail="Authentication required")
   return {"authenticated": True, "user": user}
 
-#####################
+#########################
 # TEXT
-#####################
+#########################
 from .modules import text as mtext # We give modules an M prefix
 
 # Counting
@@ -159,9 +166,9 @@ def text_pascal_case(text: str = Body(..., min_length=1, max_length=2000)):
 def text_lorem_ipsum(length: int = ParamPath(..., ge=1, le=1000)):
   return mtext.lorem_ipsum(length=length)
 
-#####################
+#########################
 # DateTime
-#####################
+#########################
 from .modules import datetime as mdatetime
 from time import time
 
@@ -205,9 +212,9 @@ def summer_time(timestamp: Optional[int] = None, timezone: str = Query("UTC", ma
     timestamp = int(time())
   return mdatetime.summer_time(timestamp, timezone)
 
-#####################
+#########################
 # Geo
-#####################
+#########################
 from .modules import geo as mgeo
 
 @app.post("/geo/geocode", tags=["Geo"])
@@ -226,9 +233,9 @@ def geo_get_tz(latitude: float = Body(..., ge=-90, le=90), longitude: float = Bo
 def geo_get_addr(latitude: float = Body(..., ge=-90, le=90), longitude: float = Body(..., ge=-180, le=180)):
   return mgeo.get_address(latitude=latitude, longitude=longitude)
 
-#####################
+#########################
 # UUID and Hashing
-#####################
+#########################
 from .modules import uuid_hashing as muuid_hashing
 @app.get("/uuid/generate/{version}", tags=["UUID and Hashing"])
 def uuid_generate(version: int = ParamPath(..., ge=1, le=5)):
@@ -254,9 +261,9 @@ def base64_encode(text: str = Body(..., min_length=1, max_length=10000)):
 def base64_decode(encoded_text: str = Body(..., min_length=1, max_length=10000)):
   return muuid_hashing.base64_decode(encoded_text=encoded_text)
 
-#####################
+#########################
 # Math
-#####################
+#########################
 from .modules import math as mmath
 
 @app.post("/math/units/convert", tags=["Math", "Units"])
@@ -293,7 +300,9 @@ def random_number(min: int = Query(0, ge=-2147483648), max: int = Query(100, ge=
 def fibonacci(n: int = Query(..., ge=0, le=10000)):
   return mmath.fibonacci(n=n)
 
-
+#########################
+# Versioned Gateway Logic
+#########################
 def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
   loaded_apps: list[tuple[str, FastAPI]] = []
   if not archive_root.is_dir():

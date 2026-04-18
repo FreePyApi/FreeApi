@@ -11,7 +11,6 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-
 PRODUCTION_ENVS = {"prod", "production"}
 PUBLIC_PATH_PREFIXES = (
   "/docs",
@@ -29,54 +28,42 @@ AUTH_COOKIE_NAME = "freeapi_auth"
 AUTH_STATE_COOKIE_NAME = "freeapi_auth_state"
 AUTH_STATE_TTL_SECONDS = 10 * 60
 
-
 def get_env(name: str, default: Optional[str] = None) -> Optional[str]:
   value = os.getenv(name)
   if value is None or value == "":
     return default
   return value
 
-
 def get_env_flag(name: str, default: str = "development") -> str:
   return (get_env(name, default) or default).strip().lower()
-
 
 def is_rate_limit_enabled() -> bool:
   return get_env_flag("ENV") in PRODUCTION_ENVS
 
-
 def is_oauth_enabled() -> bool:
   return bool(get_env("OAUTH_CLIENT_ID") and get_env("OAUTH_CLIENT_SECRET"))
 
-
 def cookie_secure() -> bool:
   return get_env_flag("ENV") in PRODUCTION_ENVS
-
 
 def get_serializer() -> URLSafeTimedSerializer:
   secret = get_env("SESSION_SECRET") or get_env("AUTH_COOKIE_SECRET") or get_env("OAUTH_CLIENT_SECRET") or "freeapi-session-secret"
   return URLSafeTimedSerializer(secret_key=secret, salt="freeapi-auth-cookie")
 
-
 def get_oauth_client_id() -> str:
   return get_env("OAUTH_CLIENT_ID") or ""
-
 
 def get_oauth_client_secret() -> str:
   return get_env("OAUTH_CLIENT_SECRET") or ""
 
-
 def get_oauth_authorize_url() -> str:
   return get_env("OAUTH_AUTHORIZE_URL", "https://github.com/login/oauth/authorize") or "https://github.com/login/oauth/authorize"
-
 
 def get_oauth_token_url() -> str:
   return get_env("OAUTH_TOKEN_URL", "https://github.com/login/oauth/access_token") or "https://github.com/login/oauth/access_token"
 
-
 def get_oauth_userinfo_url() -> str:
   return get_env("OAUTH_USERINFO_URL", "https://api.github.com/user") or "https://api.github.com/user"
-
 
 def get_oauth_redirect_uri(request: Request) -> str:
   configured = get_env("OAUTH_REDIRECT_URI")
@@ -84,25 +71,20 @@ def get_oauth_redirect_uri(request: Request) -> str:
     return configured
   return str(request.url_for("auth_callback"))
 
-
 def get_oauth_scopes() -> str:
   return get_env("OAUTH_SCOPES", "read:user user:email") or "read:user user:email"
-
 
 def is_public_path(path: str) -> bool:
   return any(path == prefix or path.startswith(prefix + "/") for prefix in PUBLIC_PATH_PREFIXES)
 
-
 def serialize_auth_payload(payload: dict[str, Any]) -> str:
   return get_serializer().dumps(payload)
-
 
 def deserialize_auth_payload(raw_value: str) -> dict[str, Any]:
   data = get_serializer().loads(raw_value, max_age=None)
   if not isinstance(data, dict):
     raise BadSignature("invalid auth cookie payload")
   return data
-
 
 def get_authenticated_user(request: Request) -> Optional[dict[str, Any]]:
   raw_cookie = request.cookies.get(AUTH_COOKIE_NAME)
@@ -120,7 +102,6 @@ def get_authenticated_user(request: Request) -> Optional[dict[str, Any]]:
   user = payload.get("user")
   return user if isinstance(user, dict) else None
 
-
 def build_authorize_url(request: Request, state: str) -> str:
   query = urllib.parse.urlencode({
     "client_id": get_oauth_client_id(),
@@ -130,7 +111,6 @@ def build_authorize_url(request: Request, state: str) -> str:
     "state": state,
   })
   return f"{get_oauth_authorize_url()}?{query}"
-
 
 def exchange_code_for_token(request: Request, code: str) -> dict[str, Any]:
   payload = urllib.parse.urlencode({
@@ -169,7 +149,6 @@ def exchange_code_for_token(request: Request, code: str) -> dict[str, Any]:
 
   return token_data
 
-
 def fetch_user_profile(access_token: str) -> dict[str, Any]:
   user_request = urllib.request.Request(
     get_oauth_userinfo_url(),
@@ -199,7 +178,6 @@ def fetch_user_profile(access_token: str) -> dict[str, Any]:
 
   return user_data
 
-
 def create_auth_cookie_value(access_token: str, user: dict[str, Any], expires_in: Optional[int]) -> str:
   expires_at = None
   if expires_in:
@@ -210,7 +188,6 @@ def create_auth_cookie_value(access_token: str, user: dict[str, Any], expires_in
     "expires_at": expires_at,
   }
   return serialize_auth_payload(payload)
-
 
 def build_login_response(request: Request) -> RedirectResponse:
   if not is_oauth_enabled():
@@ -228,7 +205,6 @@ def build_login_response(request: Request) -> RedirectResponse:
     path="/",
   )
   return response
-
 
 def build_callback_response(request: Request, code: str, state: str) -> RedirectResponse:
   if not is_oauth_enabled():
@@ -259,13 +235,11 @@ def build_callback_response(request: Request, code: str, state: str) -> Redirect
   response.delete_cookie(AUTH_STATE_COOKIE_NAME, path="/")
   return response
 
-
 def build_logout_response() -> RedirectResponse:
   response = RedirectResponse(url="/docs", status_code=status.HTTP_302_FOUND)
   response.delete_cookie(AUTH_COOKIE_NAME, path="/")
   response.delete_cookie(AUTH_STATE_COOKIE_NAME, path="/")
   return response
-
 
 def auth_guard(request: Request) -> Optional[JSONResponse]:
   if not is_oauth_enabled() or is_public_path(request.url.path):
