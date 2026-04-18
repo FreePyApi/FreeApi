@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import secrets
 import time
 import urllib.error
@@ -78,6 +79,22 @@ def get_oauth_scopes() -> str:
 
 def is_public_path(path: str) -> bool:
   return any(path == prefix or path.startswith(prefix + "/") for prefix in PUBLIC_PATH_PREFIXES)
+
+def _extract_unversioned_path(path: str) -> str:
+  """Extract path without version prefix. E.g., /v1.0.0/docs -> /docs"""
+  match = re.match(r'^/v\d+\.\d+\.\d+(/.*)?$', path)
+  if match:
+    return match.group(1) or '/'
+  return path
+
+def _is_unversioned_public_path(path: str) -> bool:
+  """Check if path (including versioned paths) is public."""
+  # Direct check for public paths
+  if is_public_path(path):
+    return True
+  # Check unversioned path
+  unversioned = _extract_unversioned_path(path)
+  return is_public_path(unversioned)
 
 def serialize_auth_payload(payload: dict[str, Any]) -> str:
   return get_serializer().dumps(payload)
@@ -245,7 +262,13 @@ def build_logout_response() -> RedirectResponse:
   return response
 
 def auth_guard(request: Request) -> Optional[RedirectResponse]:
-  if not is_oauth_enabled() or is_public_path(request.url.path):
+  if not is_oauth_enabled():
+    return None
+  
+  path = request.url.path
+  
+  # Allow all public paths including docs, openapi.json (both versioned and unversioned)
+  if _is_unversioned_public_path(path):
     return None
 
   user = get_authenticated_user(request)
