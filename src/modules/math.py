@@ -1,89 +1,101 @@
 # Math
 # Maintainer(s): SzaBee13
 # Contributor(s): SzaBee13
+# Reviewer(s): SzaBee13
 import math
+import json
 from random import randint
+from pathlib import Path
 
-CONVERSION_TABLE = {
-  # Distance
-  "cm_to_inch": 0.393701,
-  "inch_to_cm": 2.54,
-  "m_to_ft": 3.28084,
-  "ft_to_m": 0.3048,
-  "km_to_mile": 0.621371,
-  "mile_to_km": 1.60934,
-  "cm_to_ft": 0.0328084,
-  "ft_to_cm": 30.48,
-  # Weight/Mass
-  "kg_to_lb": 2.20462,
-  "lb_to_kg": 0.453592,
-  "g_to_oz": 0.035274,
-  "oz_to_g": 28.3495,
-  "ton_to_kg": 1000,
-  "kg_to_ton": 0.001,
-  # Temperature
-  "c_to_f": lambda c: (c * 9/5) + 32,
-  "f_to_c": lambda f: (f - 32) * 5/9,
-  "c_to_k": lambda c: c + 273.15,
-  "k_to_c": lambda k: k - 273.15,
-  "f_to_k": lambda f: (f - 32) * 5/9 + 273.15,
-  "k_to_f": lambda k: (k - 273.15) * 9/5 + 32,
-  # Volume
-  "liter_to_gallon": 0.264172,
-  "gallon_to_liter": 3.78541,
-  "ml_to_floz": 0.033814,
-  "floz_to_ml": 29.5735,
-  "liter_to_cup": 4.22675,
-  "cup_to_liter": 0.236588,
-  "liter_to_pint": 2.11338,
-  "pint_to_liter": 0.473176,
-  "liter_to_quart": 1.05669,
-  "quart_to_liter": 0.946353,
-  "liter_to_cbm": 0.001,
-  "cbm_to_liter": 1000,
-  # Area
-  "sqm_to_sqft": 10.7639,
-  "sqft_to_sqm": 0.092903,
-  "acre_to_sqm": 4046.86,
-  "sqm_to_acre": 0.000247105,
-  "hectare_to_sqm": 10000,
-  "sqm_to_hectare": 0.0001,
-  # Data Storage
-  "byte_to_kb": 0.001,
-  "kb_to_byte": 1000,
-  "kb_to_mb": 0.001,
-  "mb_to_kb": 1000,
-  "mb_to_gb": 0.001,
-  "gb_to_mb": 1000,
-  "gb_to_tb": 0.001,
-  "tb_to_gb": 1000,
-  "bit_to_byte": 0.125,
-  "byte_to_bit": 8,
-  "gib_to_gb": 1.07374,
-  "gb_to_gib": 0.931323,
-  "mib_to_mb": 1.04858,
-  "mb_to_mib": 0.953674,
-  "kib_to_kb": 1.024,
-  "kb_to_kib": 0.976562,
-  "tib_to_tb": 1.09951,
-  "tb_to_tib": 0.909495
-}
+DATA_FILE = Path(__file__).parent.parent / "assets" / "math" / "conversion.json"
+try:
+  with open(DATA_FILE, "r") as f:
+    _DATA = json.load(f)
+    CONVERSION_TABLE = _DATA.get("conversions", {})
+    METRIC_SCHEME = _DATA.get("metric_scheme", {})
+    UNIT_NAMES = _DATA.get("unit_names", {})
+except Exception:
+  CONVERSION_TABLE = {}
+  METRIC_SCHEME = {}
+  UNIT_NAMES = {}
 
-def convert_units(value: float, conversion_type: str) -> dict:
-  """Converts a value from one unit to another based on the conversion type."""
-  if conversion_type in CONVERSION_TABLE:
-    conversion = CONVERSION_TABLE[conversion_type]
-    if callable(conversion):
-      converted_value = conversion(value)
+def _eval_formula(expr: str, x: float) -> float:
+  return eval(expr, {"__builtins__": None, "math": math}, {"x": x})
+
+def convert_units(value: float, conversion_type: str, return_format: str = "unit") -> dict:
+  """Converts a value from one unit to another.
+
+  Supported flows:
+  - If `conversion_type` exists in `conversions` it will use that (scalar or formula).
+  - If `conversion_type` is in the form "<from>_to_<to>" and both units exist in
+    `metric_scheme`, the conversion will be computed using metric multipliers.
+  The result includes optional human-readable unit names and the factor used.
+  """
+  if return_format not in ("unit", "name", "both"):
+    return { "error": "Invalid return_format. Use 'unit', 'name', or 'both'." }
+  # Direct lookup in conversions table (scalars or formula entries)
+  entry = CONVERSION_TABLE.get(conversion_type)
+  if entry is not None:
+    # compute converted value
+    if isinstance(entry, dict) and entry.get("type") == "formula":
+      try:
+        converted_value = _eval_formula(entry["expr"], value)
+      except Exception as e:
+        return { "error": f"Formula evaluation error: {e}" }
     else:
-      converted_value = value * conversion
-    return { "converted_value": converted_value }
-  else:
-    return { "error": "Unsupported conversion type." }
+      try:
+        converted_value = value * entry
+      except Exception as e:
+        return { "error": f"Conversion error: {e}" }
+
+    result = { "converted_value": converted_value }
+    # attempt to extract from/to units from the conversion_type (e.g. cm_to_in)
+    if "_to_" in conversion_type:
+      from_u, to_u = conversion_type.split("_to_", 1)
+      if return_format in ("unit", "both"):
+        result.update({ "from_unit": from_u, "to_unit": to_u })
+      if return_format in ("name", "both"):
+        result.update({ "from_unit_name": UNIT_NAMES.get(from_u, from_u), "to_unit_name": UNIT_NAMES.get(to_u, to_u) })
+    return result
+
+  # Try metric scheme conversion if pattern matches
+  if "_to_" in conversion_type:
+    try:
+      from_u, to_u = conversion_type.split("_to_", 1)
+    except ValueError:
+      return { "error": "Unsupported conversion type format." }
+
+    if from_u in METRIC_SCHEME and to_u in METRIC_SCHEME:
+      try:
+        # factor = metric[from] / metric[to]
+        factor = METRIC_SCHEME[from_u] / METRIC_SCHEME[to_u]
+        converted_value = value * factor
+        result = { "converted_value": converted_value, "factor": factor }
+        if return_format in ("unit", "both"):
+          result.update({ "from_unit": from_u, "to_unit": to_u })
+        if return_format in ("name", "both"):
+          result.update({ "from_unit_name": UNIT_NAMES.get(from_u, from_u), "to_unit_name": UNIT_NAMES.get(to_u, to_u) })
+        return result
+      except Exception as e:
+        return { "error": f"Metric conversion error: {e}" }
+
+  return { "error": "Unsupported conversion type." }
 
 def get_conversion_types() -> dict:
-  """Returns a list of supported conversion types."""
-  return { "conversion_types": list(CONVERSION_TABLE.keys()) }
+  """Returns available conversion information.
+
+  - `conversion_types`: explicit conversions from the `conversions` table.
+  - `metric_units`: units available in the `metric_scheme` for on-the-fly conversions.
+  - `unit_names`: mapping of short unit codes to human-readable names.
+  """
+  return {
+    "conversion_types": list(CONVERSION_TABLE.keys()),
+    "metric_units": list(METRIC_SCHEME.keys()),
+    "unit_names": UNIT_NAMES,
+  }
+
+def get_unit_names() -> dict:
+  return UNIT_NAMES
 
 def check_prime(number: int) -> dict:
   """Checks if a number is prime."""

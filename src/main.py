@@ -195,13 +195,17 @@ def base64_decode(encoded_text: str):
 #####################
 from .modules import math as mmath
 
-@app.post("/math/convert_units", tags=["Math"])
-def convert_units(value: float, conversion_type: str):
-  return mmath.convert_units(value=value, conversion_type=conversion_type)
+@app.post("/math/convert_units", tags=["Math", "Units"])
+def convert_units(value: float, conversion_type: str, return_format: str):
+  return mmath.convert_units(value=value, conversion_type=conversion_type, return_format=return_format)
 
-@app.get("/math/conversion_types", tags=["Math"])
+@app.get("/math/conversion_types", tags=["Math", "Units"])
 def get_conversion_types():
   return mmath.get_conversion_types()
+
+@app.get("/math/units/names", tags=["Math", "Units"])
+def get_unit_names():
+  return mmath.get_unit_names()
 
 @app.get("/math/check/prime", tags=["Math"])
 def check_prime(number: int):

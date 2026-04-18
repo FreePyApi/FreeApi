@@ -1,6 +1,7 @@
 # Text
 # Maintainer(s): SzaBee13
 # Contributor(s): SzaBee13
+# Reviewer(s): SzaBee13
 
 ## Counting
 def count_words(text: str) -> dict:

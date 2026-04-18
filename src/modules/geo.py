@@ -1,6 +1,7 @@
 # Geo
 # Maintainer(s): SzaBee13
 # Contributor(s): SzaBee13
+# Reviewer(s): SzaBee13
 from geopy.geocoders import Nominatim
 
 def geocode(address: str) -> dict:
