@@ -23,3 +23,6 @@ labels:
   - name: wontfix
     description: This will not be worked on
     color: FFFFFF
+  - name: dependencies
+    description: Issues related to dependencies
+    color: 0E8A16
