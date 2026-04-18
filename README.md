@@ -58,6 +58,13 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000
 
 This will start the API, and it will be accessible at `http://localhost:8000`.
 
+### Security configuration
+
+- Rate limiting is enabled only when `ENV=prod` or `ENV=production`.
+- Optional OAuth2 login is enabled when both `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are present in `.env`.
+- The OAuth access token is stored in an `HttpOnly` cookie.
+- By default the OAuth flow uses GitHub endpoints; you can override them with `OAUTH_AUTHORIZE_URL`, `OAUTH_TOKEN_URL`, `OAUTH_USERINFO_URL`, and `OAUTH_REDIRECT_URI`.
+
 ## API Documentation
 
 The API documentation is available at `http://localhost:8000/docs` when you run the API locally. It provides detailed information about the available endpoints, request parameters, and response formats. You can also access the documentation online at [freeapi.szabee.me/docs](https://freeapi.szabee.me/docs).

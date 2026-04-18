@@ -23,10 +23,14 @@ archive/
 # Vercel
 .vercel/
 .env.vercel
-.env.vercel.local
 
 # Logs and temporary files
 logs/
 tmp/
 *.log
 *.tmp
+
+# dotenv
+.env
+.env.local
+.env.*.local
