@@ -1,9 +1,11 @@
 # API
 fastapi
 uvicorn
-dotenv
+python-dotenv
 authlib
 itsdangerous
+pytest
+httpx
 
 # modules/datetime
 pytz

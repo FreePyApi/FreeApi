@@ -11,6 +11,8 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+from .config import settings
+
 PRODUCTION_ENVS = {"prod", "production"}
 PUBLIC_PATH_PREFIXES = (
   "/docs",
@@ -38,13 +40,13 @@ def get_env_flag(name: str, default: str = "development") -> str:
   return (get_env(name, default) or default).strip().lower()
 
 def is_rate_limit_enabled() -> bool:
-  return get_env_flag("ENV") in PRODUCTION_ENVS
+  return settings.rate_limit_enabled
 
 def is_oauth_enabled() -> bool:
-  return bool(get_env("OAUTH_CLIENT_ID") and get_env("OAUTH_CLIENT_SECRET"))
+  return settings.oauth_enabled
 
 def cookie_secure() -> bool:
-  return get_env_flag("ENV") in PRODUCTION_ENVS
+  return settings.production
 
 def get_serializer() -> URLSafeTimedSerializer:
   secret = get_env("SESSION_SECRET") or get_env("AUTH_COOKIE_SECRET") or get_env("OAUTH_CLIENT_SECRET") or "freeapi-session-secret"
@@ -96,7 +98,8 @@ def get_authenticated_user(request: Request) -> Optional[dict[str, Any]]:
   except (BadSignature, SignatureExpired, ValueError, TypeError):
     return None
 
-  if payload.get("expires_at") and int(payload["expires_at"]) < int(request.state.timestamp):
+  current_timestamp = getattr(request.state, "timestamp", int(time.time()))
+  if payload.get("expires_at") and int(payload["expires_at"]) < int(current_timestamp):
     return None
 
   user = payload.get("user")

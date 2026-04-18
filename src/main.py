@@ -1,12 +1,19 @@
-from fastapi import Body, FastAPI, Request, HTTPException, Query, Path as ParamPath
-from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+import logging
+import time
 import importlib.util
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Optional
 
+from fastapi import Body, FastAPI, Request, HTTPException, Query, Path as ParamPath
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
+from .config import settings
+from .logging import configure_logging
 from .middleware.rate_limit import RateLimitMiddleware
 from .security import (
   auth_guard,
@@ -18,7 +25,10 @@ from .security import (
   is_rate_limit_enabled,
 )
 
-CURRENT_API_VERSION = os.getenv("FREEAPI_CURRENT_VERSION", "1.0.0")
+configure_logging()
+logger = logging.getLogger(__name__)
+
+CURRENT_API_VERSION = settings.freeapi_current_version
 CURRENT_API_PREFIX = f"/v{CURRENT_API_VERSION}"
 VERSION_PATH_RE = re.compile(r"^/v\d+\.\d+\.\d+(?:/|$)")
 
@@ -38,8 +48,34 @@ ASSETS_DIR = BASE_DIR / "assets"
 # Expose static assets so favicon and other files are publicly reachable.
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
-if is_rate_limit_enabled():
-  app.add_middleware(RateLimitMiddleware, max_requests=120, window_seconds=60)
+if settings.cors_origins:
+  app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+  )
+
+if settings.rate_limit_enabled:
+  app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=settings.rate_limit_max_requests,
+    window_seconds=settings.rate_limit_window_seconds,
+  )
+
+
+@app.middleware("http")
+async def request_context_and_logging(request: Request, call_next):
+  request.state.timestamp = int(time())
+  logger.info("request_started", extra={"request_id": f"{id(request)}"})
+  try:
+    response = await call_next(request)
+  except Exception:
+    logger.exception("request_failed")
+    raise
+  logger.info("request_finished", extra={"request_id": f"{id(request)}"})
+  return response
 
 #########################
 # Authentication Middleware
@@ -50,6 +86,22 @@ async def enforce_authentication(request: Request, call_next):
   if denied is not None:
     return denied
   return await call_next(request)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_: Request, exc: HTTPException):
+  return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_: Request, exc: RequestValidationError):
+  return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception):
+  logger.exception("unhandled_exception")
+  return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 #########################
 # Root and Utility Endpoints
@@ -69,7 +121,22 @@ def favicon_svg():
 
 @app.get("/status", tags=["Status"])
 def get_status():
-  return {"status": "running"}
+  return {"status": "running", "version": CURRENT_API_VERSION}
+
+
+@app.get("/live", tags=["Status"])
+def live():
+  return {"status": "alive"}
+
+
+@app.get("/ready", tags=["Status"])
+def ready():
+  return {
+    "status": "ready",
+    "version": CURRENT_API_VERSION,
+    "oauth_enabled": settings.oauth_enabled,
+    "rate_limit_enabled": settings.rate_limit_enabled,
+  }
 
 # Organization
 @app.get("/github", tags=["Organization"])
@@ -329,6 +396,7 @@ def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
     try:
       spec.loader.exec_module(module)
     except Exception:
+      logger.exception("failed_to_load_archive_app", extra={"archive_version": version_dir.name})
       continue
 
     archive_app = getattr(module, "app", None)
