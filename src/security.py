@@ -244,13 +244,13 @@ def build_logout_response() -> RedirectResponse:
   response.delete_cookie(AUTH_STATE_COOKIE_NAME, path="/")
   return response
 
-def auth_guard(request: Request) -> Optional[JSONResponse]:
+def auth_guard(request: Request) -> Optional[RedirectResponse]:
   if not is_oauth_enabled() or is_public_path(request.url.path):
     return None
 
   user = get_authenticated_user(request)
   if user is None:
-    return JSONResponse({"detail": "Authentication required"}, status_code=status.HTTP_401_UNAUTHORIZED)
+    return RedirectResponse(url="/auth/login", status_code=status.HTTP_302_FOUND)
 
   request.state.user = user
   return None
