@@ -21,6 +21,8 @@ You can run the API using Docker. Make sure you have Docker installed on your ma
 mkdir -p freeapi
 cd freeapi
 curl -O https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/.env.example
+nano .env # edit the .env file
 docker-compose up -d
 ```
 
@@ -34,7 +36,9 @@ If you prefer using Podman, you can run the API with the following command:
 ```bash
 mkdir -p freeapi
 cd freeapi
-curl -O https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
+curl -o podman-compose.yml https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/.env.example
+nano .env # edit the .env file
 podman-compose up -d
 ```
 

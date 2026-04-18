@@ -5,10 +5,62 @@
 from datetime import datetime
 import time
 import pytz
+import socket
+import struct
+from typing import Optional
+import dotenv
+import os
+
+TIME_SERVERS = ["pool.ntp.org", "time.google.com", "time.windows.com", "time.apple.com", "time.nist.gov", "time.cloudflare.com", "time.facebook.com", "time.twitter.com", "time.amazon.com"]
+dotenv.load_dotenv()
+PREFERED_TIME_SERVER = os.getenv("PREFERED_TIME_SERVER") or TIME_SERVERS[0] # the closest ntp pool is recommended for best performance, but you can change this to any of the available servers
 
 def unix_timestamp() -> dict:
-  """Returns the current UNIX timestamp."""
-  return { "unix_timestamp": int(time.time()) }
+  """Returns the current UNIX timestamp.
+
+  This attempts to query `PREFERED_TIME_SERVER` (and falls back through
+  `TIME_SERVERS`) using a small NTP request implemented with the stdlib.
+  If all servers fail, falls back to the local system time.
+  """
+  # Try NTP servers in order: preferred first, then the list
+  servers = [PREFERED_TIME_SERVER] + [s for s in TIME_SERVERS if s != PREFERED_TIME_SERVER]
+
+  for srv in servers:
+    try:
+      ts = _query_ntp_server(srv)
+      return { "unix_timestamp": int(ts), "ntp_server": srv }
+    except Exception:
+      continue
+
+  # Fallback to local time if NTP queries fail
+  return { "unix_timestamp": int(time.time()), "ntp_server": "local" }
+
+
+def _query_ntp_server(server: str, timeout: int = 2) -> int:
+  """Query an NTP server and return the UNIX timestamp (int).
+
+  Uses a minimal NTP client over UDP. No external dependencies required.
+  Raises on failure.
+  """
+  port = 123
+  addr = (server, port)
+  # NTP request: first byte -> 0b00 011 011 = 0x1b (LI=0, VN=3, Mode=3)
+  msg = b'\x1b' + 47 * b'\0'
+
+  with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+    s.settimeout(timeout)
+    s.sendto(msg, addr)
+    data, _ = s.recvfrom(1024)
+
+  if len(data) < 48:
+    raise ValueError("Invalid NTP response")
+
+  # Transmit timestamp starts at byte 40 and is two 32-bit integers
+  sec, frac = struct.unpack('!II', data[40:48])
+  ntp_time = sec + float(frac) / 2**32
+  # Convert NTP epoch (1900) to UNIX epoch (1970)
+  unix_time = ntp_time - 2208988800
+  return int(unix_time)
 
 def format_time(timestamp: int = int(time.time()), format: str = "%Y-%m-%d %H:%M:%S", timezone: str = "UTC") -> dict:
   """Formats a given UNIX timestamp into a human-readable string."""
