@@ -19,7 +19,8 @@ def _as_bool(value: Optional[str], default: bool = False) -> bool:
 @dataclass(frozen=True)
 class Settings:
   env: str = field(default_factory=lambda: _get_env("ENV", "development") or "development")
-  freeapi_current_version: str = field(default_factory=lambda: _get_env("FREEAPI_CURRENT_VERSION", "1.0.0") or "1.0.0")
+  freeapi_current_version: str = field(default_factory=lambda: _get_env("FREEAPI_CURRENT_VERSION", "1.0.1") or "1.0.1")
+  freeapi_domain: str = field(default_factory=lambda: _get_env("FREEAPI_DOMAIN", "freeapi.szabee.me") or "freeapi.szabee.me")
   log_level: str = field(default_factory=lambda: _get_env("LOG_LEVEL", "INFO") or "INFO")
   cors_origins: list[str] = field(default_factory=lambda: [origin.strip() for origin in (_get_env("CORS_ORIGINS", "") or "").split(",") if origin.strip()])
   rate_limit_enabled: bool = field(default_factory=lambda: _as_bool(_get_env("RATE_LIMIT_ENABLED"), default=_get_env("ENV", "development") in {"prod", "production"}))

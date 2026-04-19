@@ -16,6 +16,7 @@ from .config import settings
 
 PRODUCTION_ENVS = {"prod", "production"}
 PUBLIC_PATH_PREFIXES = (
+  "/",
   "/docs",
   "/redoc",
   "/openapi.json",

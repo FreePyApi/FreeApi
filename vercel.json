@@ -9,22 +9,32 @@
 	"redirects": [
 		{
 			"source": "/",
-			"destination": "/v1.0.0/",
+			"destination": "/v1.0.1/",
+			"permanent": false
+		},
+		{
+			"source": "/v1",
+			"destination": "/v1.0.1/",
+			"permanent": false
+		},
+		{
+			"source": "/v1.0",
+			"destination": "/v1.0.1/",
 			"permanent": false
 		},
 		{
 			"source": "/docs",
-			"destination": "/v1.0.0/docs",
+			"destination": "/v1.0.1/docs",
 			"permanent": false
 		},
 		{
 			"source": "/redoc",
-			"destination": "/v1.0.0/redoc",
+			"destination": "/v1.0.1/redoc",
 			"permanent": false
 		},
 		{
 			"source": "/openapi.json",
-			"destination": "/v1.0.0/openapi.json",
+			"destination": "/v1.0.1/openapi.json",
 			"permanent": false
 		}
 	],

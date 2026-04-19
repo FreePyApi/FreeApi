@@ -10,16 +10,16 @@ FreeAPI is a free and open-source API that provides access to various data and s
 
 ## API Versioning
 
-- The latest API version is currently `v1.0.0`.
-- Canonical endpoints are versioned: `/v1.0.0/<endpoint>`.
+- The latest API version is currently `v1.0.1`.
+- Canonical endpoints are versioned: `/v1.0.1/<endpoint>`.
 - Unversioned paths (for example `/status`, `/docs`, `/openapi.json`) redirect to the latest versioned path.
 - Archived versions live under `archive/vX.Y.Z/main.py` and are mounted automatically as `/vX.Y.Z/*` when present.
 
 Examples:
 
-- `/status` -> redirects to `/v1.0.0/status`
-- `/docs` -> redirects to `/v1.0.0/docs`
-- `/openapi.json` -> redirects to `/v1.0.0/openapi.json`
+- `/status` -> redirects to `/v1.0.1/status`
+- `/docs` -> redirects to `/v1.0.1/docs`
+- `/openapi.json` -> redirects to `/v1.0.1/openapi.json`
 
 ## Running the API
 
@@ -41,7 +41,7 @@ docker-compose up -d
 
 This will build the Docker image and start the API in a container. The API will be accessible at `http://localhost:8000`.
 
-The Docker image includes the `archive/` directory for older API versions and sets `FREEAPI_CURRENT_VERSION=1.0.0` by default.
+The Docker image includes the `archive/` directory for older API versions and sets `FREEAPI_CURRENT_VERSION=1.0.1` by default.
 
 ### Using Podman
 
@@ -76,7 +76,7 @@ This will start the API, and it will be accessible at `http://localhost:8000`.
 You can override the latest version prefix by setting `FREEAPI_CURRENT_VERSION`, for example:
 
 ```bash
-FREEAPI_CURRENT_VERSION=1.0.0 uvicorn src.main:app --host 0.0.0.0 --port 8000
+FREEAPI_CURRENT_VERSION=1.0.1 uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Security configuration
@@ -88,4 +88,4 @@ FREEAPI_CURRENT_VERSION=1.0.0 uvicorn src.main:app --host 0.0.0.0 --port 8000
 
 ## API Documentation
 
-The API documentation is available at `http://localhost:8000/v1.0.0/docs` when you run the API locally. Unversioned docs and OpenAPI endpoints redirect to the latest version. It provides detailed information about the available endpoints, request parameters, and response formats. You can also access the documentation online at [freeapi.szabee.me/docs](https://freeapi.szabee.me/docs).
+The API documentation is available at `http://localhost:8000/v1.0.1/docs` when you run the API locally. Unversioned docs and OpenAPI endpoints redirect to the latest version. It provides detailed information about the available endpoints, request parameters, and response formats. You can also access the documentation online at [freeapi.szabee.me/docs](https://freeapi.szabee.me/docs).

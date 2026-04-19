@@ -162,6 +162,88 @@ def get_conversion_types() -> dict:
 def get_unit_names() -> dict:
   return UNIT_NAMES
 
+def convert_numeric_system(from_unit: str = "decimal", to_unit: str = "binary", value: float = 0) -> dict:
+  """Converts a number from one base to another (e.g. decimal to binary)."""
+  conversion_type = f"{from_unit}_to_{to_unit}"
+  # convert units can't handle base conversions, so we implement it here
+  BASE_MAP = {
+    "binary": 2,
+    "octal": 8,
+    "decimal": 10,
+    "hexadecimal": 16,
+  }
+  
+  response = {
+    "input":       value,
+    "from_unit":   from_unit,
+    "to_unit":     to_unit,
+    "result":      None,
+    "decimal_int": None,
+    "error":       None,
+  }
+ 
+  from_unit = from_unit.lower().strip()
+  to_unit   = to_unit.lower().strip()
+ 
+  # --- Validate units ---
+  if from_unit not in BASE_MAP:
+    response["error"] = (
+      f"Unknown source unit '{from_unit}'. "
+      f"Choose from: {', '.join(BASE_MAP.keys())}"
+    )
+    response["code"] = 400
+    return response
+ 
+  if to_unit not in BASE_MAP:
+    response["error"] = (
+      f"Unknown target unit '{to_unit}'. "
+      f"Choose from: {', '.join(BASE_MAP.keys())}"
+    )
+    response["code"] = 400
+    return response
+ 
+  # --- Step 1: parse value → decimal int ---
+  try:
+    if from_unit == "decimal":
+      decimal_int = int(value)
+    else:
+      # value might be passed as float like 1010.0 for binary; stringify & strip decimals
+      raw = str(value)
+      if "." in raw:
+        raw = raw.split(".")[0]   # e.g. "1010" from "1010.0"
+      decimal_int = int(raw, BASE_MAP[from_unit])
+  except (ValueError, TypeError) as e:
+    response["error"] = f"Cannot parse '{value}' as a {from_unit} number: {e}"
+    response["code"] = 400
+    return response
+ 
+  response["decimal_int"] = decimal_int
+ 
+  # --- Step 2: decimal int → target base ---
+  try:
+    if to_unit == "decimal":
+      result = str(decimal_int)
+ 
+    elif to_unit == "binary":
+      result = bin(decimal_int)          # e.g. "0b1010"
+      result = result[2:]                # strip "0b" → "1010"
+ 
+    elif to_unit == "octal":
+      result = oct(decimal_int)          # e.g. "0o12"
+      result = result[2:]                # strip "0o" → "12"
+ 
+    elif to_unit == "hexadecimal":
+      result = hex(decimal_int)          # e.g. "0xa"
+      result = result[2:].upper()        # strip "0x", uppercase → "A"
+ 
+  except Exception as e:
+    response["error"] = f"Conversion failed: {e}"
+    response["code"] = 400
+    return response
+ 
+  response["result"] = result
+  return response
+
 def check_prime(number: int) -> dict:
   """Checks if a number is prime."""
   if number <= 1:

@@ -7,7 +7,7 @@ itsdangerous
 pytest
 httpx
 
-# modules/datetime
+# Modules
 pytz
-# modules/geo
 geopy
+numpy

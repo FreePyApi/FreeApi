@@ -1,8 +1,11 @@
 import logging
 import time
 import importlib.util
+import sys
+import types
 import os
 import re
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -83,6 +86,37 @@ async def request_context_and_logging(request: Request, call_next):
     logger.exception("request_failed")
     raise
   logger.info("request_finished", extra={"request_id": f"{id(request)}"})
+  return response
+
+
+@app.middleware("http")
+async def module_error_code_to_status(request: Request, call_next):
+  response = await call_next(request)
+
+  # If a module returns {"error": ..., "code": ...}, use that code as HTTP status.
+  if response.status_code >= 400:
+    return response
+
+  if response.media_type != "application/json":
+    return response
+
+  body = getattr(response, "body", None)
+  if not body:
+    return response
+
+  try:
+    payload = json.loads(body)
+  except (TypeError, json.JSONDecodeError):
+    return response
+
+  if not isinstance(payload, dict):
+    return response
+
+  error = payload.get("error")
+  code = payload.get("code")
+  if isinstance(error, str) and isinstance(code, int) and not isinstance(code, bool) and 100 <= code <= 599:
+    response.status_code = code
+
   return response
 
 #########################
@@ -353,6 +387,10 @@ def get_conversion_types():
 def get_unit_names():
   return mmath.get_unit_names()
 
+@app.post("/math/units/convert_numeric_system", tags=["Math", "Units"])
+def convert_numeric_system(from_unit: str = Body("decimal", min_length=1, max_length=50), to_unit: str = Body("binary", min_length=1, max_length=50), value: str = Body(..., min_length=1, max_length=1000)):
+  return mmath.convert_numeric_system(from_unit=from_unit, to_unit=to_unit, value=value)
+
 @app.get("/math/check/prime", tags=["Math"])
 def check_prime(number: int = Query(..., ge=0)):
   return mmath.check_prime(number=number)
@@ -376,6 +414,41 @@ def fibonacci(n: int = Query(..., ge=0, le=10000)):
   return mmath.fibonacci(n=n)
 
 #########################
+# Random
+#########################
+from .modules import random as mrandom
+@app.get("/random/color", tags=["Random"])
+def random_color(): 
+  return mrandom.random_color()
+
+@app.get("/random/gradient", tags=["Random"])
+def random_gradient(colors: int = Query(2, ge=2), type: str = Query("linear", ge=2)):
+  return mrandom.random_gradient(colors=colors, type=type)
+
+@app.get("/random/quote", tags=["Random"])
+def random_quote(tag: str = Query(None)):
+  return mrandom.random_quote(tag=tag)
+
+@app.get("/random/joke", tags=["Random"])
+def random_joke(category: str = Query(None), explicit: Optional[str] = Query(None)):
+  default_explicit = {"nsfw": False, "religious": False, "political": False, "racist": False, "sexist": False, "explicit": False}
+  if explicit is None:
+    explicit_dict = default_explicit
+  else:
+    try:
+      explicit_dict = json.loads(explicit)
+      if not isinstance(explicit_dict, dict):
+        return {"error": "Invalid explicit parameter; must be a JSON object.", "code": 400}
+    except Exception:
+      return {"error": "Invalid explicit parameter; must be valid JSON.", "code": 400}
+
+  return mrandom.random_joke(category=category, explicit=explicit_dict)
+
+@app.get("/random/dad_joke", tags=["Random"])
+def random_dad_joke(category: str = Query(None)):
+  return mrandom.random_dad_joke(category=category)
+
+#########################
 # Versioned Gateway Logic
 #########################
 def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
@@ -395,16 +468,30 @@ def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
     if not main_file.is_file():
       continue
 
-    module_name = f"archive_{version_dir.name.replace('.', '_')}_main"
-    spec = importlib.util.spec_from_file_location(module_name, main_file)
+    # Create a package name safe for Python identifiers (replace dots with underscores)
+    package_name = f"archives.{version_dir.name.replace('.', '_')}"
+
+    # Ensure a package module exists so relative imports inside the archive work
+    if package_name not in sys.modules:
+      pkg = types.ModuleType(package_name)
+      pkg.__path__ = [str(version_dir)]
+      sys.modules[package_name] = pkg
+
+    module_full_name = f"{package_name}.main"
+    spec = importlib.util.spec_from_file_location(module_full_name, main_file, submodule_search_locations=[str(version_dir)])
     if spec is None or spec.loader is None:
       continue
 
     module = importlib.util.module_from_spec(spec)
+    # Register the module in sys.modules so intra-package imports resolve
+    sys.modules[module_full_name] = module
     try:
       spec.loader.exec_module(module)
     except Exception:
       logger.exception("failed_to_load_archive_app", extra={"archive_version": version_dir.name})
+      # Clean up any partial modules
+      sys.modules.pop(module_full_name, None)
+      sys.modules.pop(package_name, None)
       continue
 
     archive_app = getattr(module, "app", None)
@@ -413,7 +500,6 @@ def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
 
   return loaded_apps
 
-
 def _resolve_archive_root() -> Path:
   for archive_dir_name in ("archive", "archives"):
     archive_root = BASE_DIR.parent / archive_dir_name
@@ -421,7 +507,6 @@ def _resolve_archive_root() -> Path:
       return archive_root
 
   return BASE_DIR.parent / "archive"
-
 
 def _build_versioned_gateway(current_app: FastAPI) -> FastAPI:
   gateway_app = FastAPI(
@@ -453,6 +538,5 @@ def _build_versioned_gateway(current_app: FastAPI) -> FastAPI:
     gateway_app.mount(version_prefix, archive_app)
 
   return gateway_app
-
 
 app = _build_versioned_gateway(app)
