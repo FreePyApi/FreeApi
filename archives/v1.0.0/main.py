@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import settings
 from .logging import configure_logging
 from .middleware.rate_limit import RateLimitMiddleware
+from .middleware.docs_rate_limit import DocsRateLimitMiddleware
 from .security import (
   auth_guard,
   build_callback_response,
@@ -62,6 +63,13 @@ if settings.rate_limit_enabled:
     RateLimitMiddleware,
     max_requests=settings.rate_limit_max_requests,
     window_seconds=settings.rate_limit_window_seconds,
+  )
+
+if settings.oauth_enabled and settings.docs_rate_limit_enabled:
+  app.add_middleware(
+    DocsRateLimitMiddleware,
+    max_requests=settings.docs_rate_limit_max_requests,
+    window_seconds=settings.docs_rate_limit_window_seconds,
   )
 
 
