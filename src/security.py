@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Optional
+import logging
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -14,6 +15,8 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from .config import settings
 from .api_keys import authenticate_bearer_token
+
+logger = logging.getLogger(__name__)
 
 PRODUCTION_ENVS = {"prod", "production"}
 PUBLIC_PATH_PREFIXES = (
@@ -31,7 +34,7 @@ PUBLIC_PATH_PREFIXES = (
 
 AUTH_COOKIE_NAME = "freeapi_auth"
 AUTH_STATE_COOKIE_NAME = "freeapi_auth_state"
-AUTH_STATE_TTL_SECONDS = 10 * 60
+AUTH_STATE_TTL_SECONDS = 10 * 60 # 10 minutes
 
 def get_env(name: str, default: Optional[str] = None) -> Optional[str]:
   value = os.getenv(name)
@@ -74,7 +77,10 @@ def get_oauth_redirect_uri(request: Request) -> str:
   configured = get_env("OAUTH_REDIRECT_URI")
   if configured:
     return configured
-  return str(request.url_for("auth_callback"))
+  # Always use a stable redirect path so the callback doesn't change per-version.
+  # Use the request base URL (scheme + host) and append the fixed path.
+  base = str(request.base_url).rstrip('/')
+  return f"{base}/auth/callback"
 
 def get_oauth_scopes() -> str:
   return get_env("OAUTH_SCOPES", "read:user user:email") or "read:user user:email"
@@ -192,9 +198,11 @@ def exchange_code_for_token(request: Request, code: str) -> dict[str, Any]:
   try:
     token_data = json.loads(response_body)
   except json.JSONDecodeError as exc:
+    logger.debug("OAuth token exchange returned non-json response: %s", response_body)
     raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OAuth token response was invalid") from exc
 
   if not isinstance(token_data, dict) or not token_data.get("access_token"):
+    logger.debug("OAuth token response missing access_token: %s", response_body)
     raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OAuth token response did not include an access token")
 
   return token_data

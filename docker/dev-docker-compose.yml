@@ -1,10 +1,13 @@
 services:
   api:
-    image: ghcr.io/freepyapi/freeapi:latest
-    container_name: freeapi
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: freeapi-dev
     env_file:
-      - .env
+      - ../.env.local
     environment:
+      - ENV=development
       - FREEAPI_CURRENT_VERSION=${FREEAPI_CURRENT_VERSION}
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres
@@ -24,7 +27,7 @@ services:
     image: postgres:16-alpine
     container_name: freeapi-postgres
     env_file:
-      - .env
+      - ../.env.local
     environment:
       POSTGRES_DB: freeapi
       POSTGRES_USER: freeapi

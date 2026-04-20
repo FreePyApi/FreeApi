@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from typing import Optional
+from urllib.parse import quote
 
 
 def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
@@ -14,6 +15,25 @@ def _as_bool(value: Optional[str], default: bool = False) -> bool:
   if value is None:
     return default
   return value.strip().lower() in {"1", "true", "yes", "on", "prod", "production"}
+
+
+def _build_postgres_url() -> str:
+  explicit = _get_env("POSTGRES_URL", "") or ""
+  if explicit:
+    return explicit
+
+  user = _get_env("POSTGRES_USER", "") or ""
+  password = _get_env("POSTGRES_PASSWORD", "") or ""
+  host = _get_env("POSTGRES_HOST", "") or ""
+  database = _get_env("POSTGRES_DB", "") or ""
+  port = _get_env("POSTGRES_PORT", "5432") or "5432"
+
+  if user and password and host and database:
+    encoded_user = quote(user, safe="")
+    encoded_password = quote(password, safe="")
+    return f"postgresql://{encoded_user}:{encoded_password}@{host}:{port}/{database}"
+
+  return ""
 
 
 @dataclass(frozen=True)
@@ -32,7 +52,7 @@ class Settings:
   oauth_client_id: str = field(default_factory=lambda: _get_env("OAUTH_CLIENT_ID", "") or "")
   oauth_client_secret: str = field(default_factory=lambda: _get_env("OAUTH_CLIENT_SECRET", "") or "")
   session_secret: str = field(default_factory=lambda: _get_env("SESSION_SECRET", "") or "")
-  postgres_url: str = field(default_factory=lambda: _get_env("POSTGRES_URL", "") or "")
+  postgres_url: str = field(default_factory=_build_postgres_url)
   api_key_pepper: str = field(default_factory=lambda: _get_env("API_KEY_PEPPER", "") or "")
   preferred_time_server: str = field(default_factory=lambda: _get_env("PREFERED_TIME_SERVER", "pool.ntp.org") or "pool.ntp.org")
   redis_url: str = field(default_factory=lambda: _get_env("REDIS_URL", "") or "")

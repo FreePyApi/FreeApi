@@ -22,7 +22,12 @@ DATA_FILE_JOKES = Path(__file__).parent.parent / "assets" / "random" / "jokes.js
 try:
   with open(DATA_FILE_JOKES, "r") as f:
     _DATA = json.load(f)
-    JOKES = _DATA.get("jokes", []) if isinstance(_DATA, dict) else []
+    if isinstance(_DATA, dict):
+      JOKES = _DATA.get("jokes", [])
+    elif isinstance(_DATA, list):
+      JOKES = _DATA
+    else:
+      JOKES = []
 except Exception:
   JOKES = []
 
@@ -30,7 +35,12 @@ DATA_FILE_DAD_JOKES = Path(__file__).parent.parent / "assets" / "random" / "dad_
 try:
   with open(DATA_FILE_DAD_JOKES, "r") as f:
     _DATA = json.load(f)
-    DAD_JOKES = _DATA.get("jokes", []) if isinstance(_DATA, dict) else []
+    if isinstance(_DATA, dict):
+      DAD_JOKES = _DATA.get("jokes", [])
+    elif isinstance(_DATA, list):
+      DAD_JOKES = _DATA
+    else:
+      DAD_JOKES = []
 except Exception:
   DAD_JOKES = []
 
