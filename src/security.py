@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from .config import settings
+from .api_keys import authenticate_bearer_token
 
 PRODUCTION_ENVS = {"prod", "production"}
 PUBLIC_PATH_PREFIXES = (
@@ -109,11 +110,27 @@ def deserialize_auth_payload(raw_value: str) -> dict[str, Any]:
 def get_authenticated_user(request: Request) -> Optional[dict[str, Any]]:
   raw_cookie = request.cookies.get(AUTH_COOKIE_NAME)
   if not raw_cookie:
+    bearer_token = _get_bearer_token(request)
+    if bearer_token is None:
+      return None
+    user = authenticate_bearer_token(bearer_token)
+    if user is not None:
+      request.state.auth_method = "bearer"
+      return user
+    request.state.bearer_auth_failed = True
     return None
 
   try:
     payload = deserialize_auth_payload(raw_cookie)
   except (BadSignature, SignatureExpired, ValueError, TypeError):
+    bearer_token = _get_bearer_token(request)
+    if bearer_token is None:
+      return None
+    user = authenticate_bearer_token(bearer_token)
+    if user is not None:
+      request.state.auth_method = "bearer"
+      return user
+    request.state.bearer_auth_failed = True
     return None
 
   current_timestamp = getattr(request.state, "timestamp", int(time.time()))
@@ -121,7 +138,19 @@ def get_authenticated_user(request: Request) -> Optional[dict[str, Any]]:
     return None
 
   user = payload.get("user")
-  return user if isinstance(user, dict) else None
+  if isinstance(user, dict):
+    request.state.auth_method = "cookie"
+    return user
+
+  bearer_token = _get_bearer_token(request)
+  if bearer_token is None:
+    return None
+  user = authenticate_bearer_token(bearer_token)
+  if user is not None:
+    request.state.auth_method = "bearer"
+    return user
+  request.state.bearer_auth_failed = True
+  return None
 
 def build_authorize_url(request: Request, state: str) -> str:
   query = urllib.parse.urlencode({
@@ -278,3 +307,15 @@ def auth_guard(request: Request) -> Optional[RedirectResponse]:
 
   request.state.user = user
   return None
+
+
+def _get_bearer_token(request: Request) -> Optional[str]:
+  authorization = request.headers.get("authorization") or request.headers.get("Authorization")
+  if not authorization:
+    return None
+
+  scheme, _, token = authorization.partition(" ")
+  if scheme.lower() != "bearer" or not token.strip():
+    return None
+
+  return token.strip()

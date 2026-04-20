@@ -34,6 +34,18 @@ try:
 except Exception:
   DAD_JOKES = []
 
+DATA_FILE_NAMES = Path(__file__).parent.parent / "assets" / "random" / "names.json"
+try:
+  with open(DATA_FILE_NAMES, "r") as f:
+    _DATA = json.load(f)
+    NAMES = _DATA if isinstance(_DATA, dict) else {}
+    FEMALE_FIRST_NAMES = NAMES.get("female_first_names", [])
+    MALE_FIRST_NAMES = NAMES.get("male_first_names", []) 
+    LAST_NAMES = NAMES.get("last_names", [])
+    EMAIL_PROVIDERS = NAMES.get("email_providers", [])
+except Exception:
+  NAMES = {"first": [], "last": []}
+
 def random_color() -> dict:
   COLOR = (rand.randint(0,255), rand.randint(0,255), rand.randint(0,255))
   HEX = f"#{cns('decimal', 'hexadecimal', COLOR[0])['result']}{cns('decimal', 'hexadecimal', COLOR[1])['result']}{cns('decimal', 'hexadecimal', COLOR[2])['result']}"
@@ -119,7 +131,6 @@ def random_joke(category: str = None, explicit: dict = {"nsfw": False, "religiou
     "flags": {key: joke.get(key, False) for key in explicit.keys()}
   }
 
-
 def random_dad_joke(category: str = None) -> dict:
   if not DAD_JOKES:
     return {"error": "No dad jokes available.", "code": 500}
@@ -139,4 +150,24 @@ def random_dad_joke(category: str = None) -> dict:
     "type": joke.get("type"),
     "setup": joke.get("setup"),
     "delivery": joke.get("delivery")
+  }
+
+def random_identity() -> dict:
+  if not NAMES:
+    return {"error": "No names available.", "code": 500}
+
+  gender = rand.choice(["male", "female"])
+  first_names = FEMALE_FIRST_NAMES if gender == "female" else MALE_FIRST_NAMES
+  first_name = rand.choice(first_names)
+  last_name = rand.choice(LAST_NAMES)
+  born = rand.randint(1950, 2010)
+  email = f"{first_name.lower()}.{last_name.lower()}{str(born)[2:4]}@{rand.choice(EMAIL_PROVIDERS)}"
+  
+  return {
+    "gender": gender,
+    "first_name": first_name,
+    "last_name": last_name,
+    "full_name": f"{first_name} {last_name}",
+    "email": email,
+    "born": born
   }

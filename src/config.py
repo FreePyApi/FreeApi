@@ -32,6 +32,8 @@ class Settings:
   oauth_client_id: str = field(default_factory=lambda: _get_env("OAUTH_CLIENT_ID", "") or "")
   oauth_client_secret: str = field(default_factory=lambda: _get_env("OAUTH_CLIENT_SECRET", "") or "")
   session_secret: str = field(default_factory=lambda: _get_env("SESSION_SECRET", "") or "")
+  postgres_url: str = field(default_factory=lambda: _get_env("POSTGRES_URL", "") or "")
+  api_key_pepper: str = field(default_factory=lambda: _get_env("API_KEY_PEPPER", "") or "")
   preferred_time_server: str = field(default_factory=lambda: _get_env("PREFERED_TIME_SERVER", "pool.ntp.org") or "pool.ntp.org")
   redis_url: str = field(default_factory=lambda: _get_env("REDIS_URL", "") or "")
   metrics_enabled: bool = field(default_factory=lambda: _as_bool(_get_env("METRICS_ENABLED"), default=True))

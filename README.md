@@ -31,17 +31,15 @@ Examples:
 You can run the API using Docker. Make sure you have Docker installed on your machine, then navigate to the `docker` directory and run the following command:
 
 ```bash
-mkdir -p freeapi
-cd freeapi
-curl -O https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/.env.example
+cd freeapi/docker
+cp .env.example .env
 nano .env # edit the .env file
-docker-compose up -d
+docker compose up -d
 ```
 
-This will build the Docker image and start the API in a container. The API will be accessible at `http://localhost:8000`.
+This will build the API image locally and start the API together with Postgres and Redis. The API will be accessible at `http://localhost:8000`.
 
-The Docker image includes the `archive/` directory for older API versions and sets `FREEAPI_CURRENT_VERSION=1.0.1` by default.
+The Docker image includes the `archives/` directory for older API versions and sets `FREEAPI_CURRENT_VERSION=1.0.0` in the compose example.
 
 ### Using Podman
 
@@ -49,10 +47,8 @@ If you prefer using Podman, you can run the API with the following command:
 (Podman supports docker images, so you can use the same docker-compose.yml file)
 
 ```bash
-mkdir -p freeapi
-cd freeapi
-curl -o podman-compose.yml https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/.env.example
+cd freeapi/docker
+cp .env.example .env
 nano .env # edit the .env file
 podman-compose up -d
 ```
@@ -85,6 +81,10 @@ FREEAPI_CURRENT_VERSION=1.0.1 uvicorn src.main:app --host 0.0.0.0 --port 8000
 - Optional OAuth2 login is enabled when both `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are present in `.env`.
 - The OAuth access token is stored in an `HttpOnly` cookie.
 - By default the OAuth flow uses GitHub endpoints; you can override them with `OAUTH_AUTHORIZE_URL`, `OAUTH_TOKEN_URL`, `OAUTH_USERINFO_URL`, and `OAUTH_REDIRECT_URI`.
+- API keys are stored in Postgres when `POSTGRES_URL` is set.
+- Redis backs rate limiting when `REDIS_URL` is set.
+- API keys are hashed with Argon2 and a pepper from `API_KEY_PEPPER`.
+- Users can create, list, and delete API keys under `/v1.0.0/auth/api-keys`.
 
 ## API Documentation
 

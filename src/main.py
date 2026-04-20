@@ -7,6 +7,8 @@ import os
 import re
 import json
 from pathlib import Path
+from datetime import datetime
+import uuid
 from typing import Optional
 
 from fastapi import Body, FastAPI, Request, HTTPException, Query, Path as ParamPath
@@ -28,6 +30,7 @@ from .security import (
   is_oauth_enabled,
   is_rate_limit_enabled,
 )
+from .api_keys import create_api_key, delete_api_key, is_api_key_auth_enabled, list_api_keys
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -178,6 +181,7 @@ def ready():
     "version": CURRENT_API_VERSION,
     "oauth_enabled": settings.oauth_enabled,
     "rate_limit_enabled": settings.rate_limit_enabled,
+    "api_key_auth_enabled": is_api_key_auth_enabled(),
   }
 
 # Organization
@@ -193,6 +197,7 @@ def auth_status():
   return {
     "enabled": is_oauth_enabled(),
     "provider": "github",
+    "api_key_auth_enabled": is_api_key_auth_enabled(),
   }
 
 
@@ -217,6 +222,34 @@ def auth_me(request: Request):
   if user is None:
     raise HTTPException(status_code=401, detail="Authentication required")
   return {"authenticated": True, "user": user}
+
+
+@app.post("/auth/api-keys", tags=["Auth"])
+def auth_create_api_key(
+  request: Request,
+  description: Optional[str] = Body(None, max_length=200),
+  expires_at: Optional[datetime] = Body(None),
+):
+  user = get_authenticated_user(request)
+  if user is None:
+    raise HTTPException(status_code=401, detail="Authentication required")
+  return create_api_key(user=user, description=description, expires_at=expires_at)
+
+
+@app.get("/auth/api-keys", tags=["Auth"])
+def auth_list_api_keys(request: Request):
+  user = get_authenticated_user(request)
+  if user is None:
+    raise HTTPException(status_code=401, detail="Authentication required")
+  return list_api_keys(user=user)
+
+
+@app.delete("/auth/api-keys/{key_uuid}", tags=["Auth"])
+def auth_delete_api_key(request: Request, key_uuid: uuid.UUID):
+  user = get_authenticated_user(request)
+  if user is None:
+    raise HTTPException(status_code=401, detail="Authentication required")
+  return delete_api_key(user=user, key_uuid=key_uuid)
 
 #########################
 # TEXT
