@@ -13,7 +13,8 @@ FreeAPI is a free and open-source API that provides access to various data and s
 - The latest API version is currently `v1.0.1`.
 - Canonical endpoints are versioned: `/v1.0.1/<endpoint>`.
 - Unversioned paths (for example `/status`, `/docs`, `/openapi.json`) redirect to the latest versioned path.
-- Archived versions live under `archive/vX.Y.Z/main.py` and are mounted automatically as `/vX.Y.Z/*` when present.
+- Archived versions live under `archives/vX.Y.Z/` and only contain `routes/`, `modules/`, and `assets/` directories.
+- Archive versions are mounted automatically as `/vX.Y.Z/*` when the required directories are present.
 
 Examples:
 

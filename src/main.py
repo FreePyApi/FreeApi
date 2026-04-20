@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, APIRouter
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -178,56 +178,68 @@ def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
     if version_prefix == CURRENT_API_PREFIX:
       continue
 
-    main_file = version_dir / "main.py"
-    if not main_file.is_file():
+    modules_dir = version_dir / "modules"
+    routes_dir = version_dir / "routes"
+    assets_dir = version_dir / "assets"
+    if not modules_dir.is_dir() or not routes_dir.is_dir() or not assets_dir.is_dir():
       continue
 
     # Create a package name safe for Python identifiers (replace dots with underscores)
     package_name = f"{base_pkg_name}.{version_dir.name.replace('.', '_')}"
 
-    # Ensure a package module exists so relative imports inside the archive work
+    # Ensure a package module exists so relative imports inside the archive work.
+    # Keep BASE_DIR as a fallback so shared modules like config/services/models can
+    # be reused without duplicating them inside each archive version.
     if package_name not in sys.modules:
       pkg = types.ModuleType(package_name)
-      pkg.__path__ = [str(version_dir)]
+      pkg.__path__ = [str(version_dir), str(BASE_DIR)]
       sys.modules[package_name] = pkg
 
-    module_full_name = f"{package_name}.main"
-    spec = importlib.util.spec_from_file_location(module_full_name, main_file, submodule_search_locations=[str(version_dir)])
-    if spec is None or spec.loader is None:
-      continue
+    routes_package_name = f"{package_name}.routes"
+    if routes_package_name not in sys.modules:
+      routes_pkg = types.ModuleType(routes_package_name)
+      routes_pkg.__path__ = [str(routes_dir)]
+      sys.modules[routes_package_name] = routes_pkg
 
-    module = importlib.util.module_from_spec(spec)
-    # Ensure the module has the correct package so relative imports resolve
-    module = importlib.util.module_from_spec(spec)
-    module.__package__ = package_name
-    module.__path__ = [str(version_dir)]
-    # Register the module in sys.modules so intra-package imports resolve
-    sys.modules[module_full_name] = module
+    archive_app = FastAPI(
+      title=f"FreeAPI {version_dir.name}",
+      description=f"Archived API version {version_dir.name}",
+      version=version_dir.name.lstrip("v"),
+      docs_url="/docs",
+      redoc_url="/redoc",
+      openapi_url="/openapi.json",
+    )
+
+    # Expose archived static assets as /vX.Y.Z/assets/*
+    archive_app.mount("/assets", StaticFiles(directory=assets_dir), name=f"assets_{version_dir.name.replace('.', '_')}")
+
     try:
-      spec.loader.exec_module(module)
+      for route_file in sorted(routes_dir.glob("*.py")):
+        if route_file.name == "__init__.py":
+          continue
+
+        module_full_name = f"{routes_package_name}.{route_file.stem}"
+        spec = importlib.util.spec_from_file_location(module_full_name, route_file)
+        if spec is None or spec.loader is None:
+          continue
+
+        module = importlib.util.module_from_spec(spec)
+        module.__package__ = routes_package_name
+        sys.modules[module_full_name] = module
+        spec.loader.exec_module(module)
+
+        router = getattr(module, "router", None)
+        if isinstance(router, APIRouter):
+          archive_app.include_router(router)
     except Exception:
       logger.exception("failed_to_load_archive_app", extra={"archive_version": version_dir.name})
-      # Clean up any partial modules
-      sys.modules.pop(module_full_name, None)
+      for module_name in list(sys.modules.keys()):
+        if module_name.startswith(f"{package_name}."):
+          sys.modules.pop(module_name, None)
       sys.modules.pop(package_name, None)
       continue
 
-    archive_app = getattr(module, "app", None)
-    if isinstance(archive_app, FastAPI):
-      # If the archive itself built a gateway and mounted its current app
-      # under the same version prefix (e.g. '/v1.0.0'), unwrap that mount
-      # so we mount the inner API app directly at the archive prefix.
-      try:
-        for route in list(getattr(archive_app, 'router').routes):
-          route_path = getattr(route, 'path', None)
-          sub_app = getattr(route, 'app', None)
-          if route_path == version_prefix and isinstance(sub_app, FastAPI):
-            archive_app = sub_app
-            break
-      except Exception:
-        pass
-
-      loaded_apps.append((version_prefix, archive_app))
+    loaded_apps.append((version_prefix, archive_app))
 
   return loaded_apps
 
