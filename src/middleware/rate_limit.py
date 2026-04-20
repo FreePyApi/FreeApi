@@ -4,7 +4,7 @@ from typing import Dict
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ..config import settings
+from ..config.config import settings
 
 class RateLimitMiddleware:
   def __init__(self, app: ASGIApp, *, max_requests: int = 60, window_seconds: int = 60):
