@@ -6,6 +6,7 @@ from .random import router as random_router
 from .root import router as root_router
 from .text import router as text_router
 from .uuid_hashing import router as uuid_hashing_router
+from .network import router as network_router
 
 __all__ = [
   "auth_router",
@@ -16,4 +17,5 @@ __all__ = [
   "root_router",
   "text_router",
   "uuid_hashing_router",
+  "network_router",
 ]

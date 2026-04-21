@@ -28,6 +28,7 @@ from .routes import (
   root_router,
   text_router,
   uuid_hashing_router,
+  network_router,
 )
 
 configure_logging()
@@ -154,7 +155,7 @@ app.include_router(geo_router)
 app.include_router(uuid_hashing_router)
 app.include_router(math_router)
 app.include_router(random_router)
-
+app.include_router(network_router)
 #########################
 # Versioned Gateway Logic
 #########################
