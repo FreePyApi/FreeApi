@@ -57,4 +57,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate addon image build
-        run: docker build -f home-assistant/addon/freeapi/Dockerfile home-assistant/addon/freeapi
+        run: docker build -f home-assistant/addon/freeapi/Dockerfile .

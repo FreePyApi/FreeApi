@@ -39,7 +39,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate addon image build
-        run: docker build -f home-assistant/addon/freeapi/Dockerfile home-assistant/addon/freeapi
+        run: docker build -f home-assistant/addon/freeapi/Dockerfile .
 
   release:
     needs: validate
@@ -74,7 +74,7 @@ jobs:
       - name: Build and push addon image
         uses: docker/build-push-action@v7
         with:
-          context: home-assistant/addon/freeapi
+          context: .
           file: home-assistant/addon/freeapi/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
