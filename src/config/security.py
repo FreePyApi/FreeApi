@@ -6,15 +6,16 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from html import escape
 from typing import Any, Optional
 import logging
 
 from fastapi import HTTPException, Request, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from .config import settings
-from .api_keys import authenticate_bearer_token
+from .api_keys import authenticate_bearer_token, create_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ PUBLIC_PATH_PREFIXES = (
 
 AUTH_COOKIE_NAME = "freeapi_auth"
 AUTH_STATE_COOKIE_NAME = "freeapi_auth_state"
+AUTH_HA_STATE_COOKIE_NAME = "freeapi_auth_ha_state"
 AUTH_STATE_TTL_SECONDS = 10 * 60 # 10 minutes
 
 def get_env(name: str, default: Optional[str] = None) -> Optional[str]:
@@ -81,6 +83,11 @@ def get_oauth_redirect_uri(request: Request) -> str:
   # Use the request base URL (scheme + host) and append the fixed path.
   base = str(request.base_url).rstrip('/')
   return f"{base}/auth/callback"
+
+
+def get_oauth_ha_redirect_uri(request: Request) -> str:
+  base = str(request.base_url).rstrip('/')
+  return f"{base}/auth/callback/ha"
 
 def get_oauth_scopes() -> str:
   return get_env("OAUTH_SCOPES", "read:user user:email") or "read:user user:email"
@@ -158,22 +165,22 @@ def get_authenticated_user(request: Request) -> Optional[dict[str, Any]]:
   request.state.bearer_auth_failed = True
   return None
 
-def build_authorize_url(request: Request, state: str) -> str:
+def build_authorize_url(request: Request, state: str, redirect_uri: str | None = None) -> str:
   query = urllib.parse.urlencode({
     "client_id": get_oauth_client_id(),
-    "redirect_uri": get_oauth_redirect_uri(request),
+    "redirect_uri": redirect_uri or get_oauth_redirect_uri(request),
     "response_type": "code",
     "scope": get_oauth_scopes(),
     "state": state,
   })
   return f"{get_oauth_authorize_url()}?{query}"
 
-def exchange_code_for_token(request: Request, code: str) -> dict[str, Any]:
+def exchange_code_for_token(request: Request, code: str, redirect_uri: str | None = None) -> dict[str, Any]:
   payload = urllib.parse.urlencode({
     "client_id": get_oauth_client_id(),
     "client_secret": get_oauth_client_secret(),
     "code": code,
-    "redirect_uri": get_oauth_redirect_uri(request),
+    "redirect_uri": redirect_uri or get_oauth_redirect_uri(request),
   }).encode("utf-8")
 
   token_request = urllib.request.Request(
@@ -291,6 +298,86 @@ def build_callback_response(request: Request, code: str, state: str) -> Redirect
     cookie_kwargs["max_age"] = int(expires_in)
   response.set_cookie(**cookie_kwargs)
   response.delete_cookie(AUTH_STATE_COOKIE_NAME, path="/")
+  return response
+
+
+def _validate_ha_callback_url(url: str) -> str:
+  parsed = urllib.parse.urlparse(url)
+  if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Home Assistant callback URL")
+  return url
+
+
+def _serialize_ha_state(ha_callback: str) -> str:
+  payload = {
+    "nonce": secrets.token_urlsafe(32),
+    "ha_callback": _validate_ha_callback_url(ha_callback),
+  }
+  return get_serializer().dumps(payload)
+
+
+def _deserialize_ha_state(raw_value: str) -> dict[str, Any]:
+  data = get_serializer().loads(raw_value, max_age=AUTH_STATE_TTL_SECONDS)
+  if not isinstance(data, dict):
+    raise BadSignature("invalid Home Assistant auth state payload")
+  callback = data.get("ha_callback")
+  if not isinstance(callback, str):
+    raise BadSignature("missing Home Assistant callback URL")
+  data["ha_callback"] = _validate_ha_callback_url(callback)
+  return data
+
+
+def build_ha_login_response(request: Request, ha_callback: str) -> RedirectResponse:
+  if not is_oauth_enabled():
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth is not configured")
+
+  state = _serialize_ha_state(ha_callback)
+  authorize_url = build_authorize_url(request, state, redirect_uri=get_oauth_ha_redirect_uri(request))
+  response = RedirectResponse(authorize_url, status_code=status.HTTP_302_FOUND)
+  response.set_cookie(
+    key=AUTH_HA_STATE_COOKIE_NAME,
+    value=state,
+    httponly=True,
+    secure=cookie_secure(),
+    samesite="lax",
+    max_age=AUTH_STATE_TTL_SECONDS,
+    path="/",
+  )
+  return response
+
+
+def build_ha_callback_response(request: Request, code: str, state: str) -> HTMLResponse:
+  if not is_oauth_enabled():
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth is not configured")
+
+  expected_state = request.cookies.get(AUTH_HA_STATE_COOKIE_NAME)
+  if not expected_state or not secrets.compare_digest(expected_state, state):
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
+
+  state_payload = _deserialize_ha_state(state)
+  token_data = exchange_code_for_token(request, code, redirect_uri=get_oauth_ha_redirect_uri(request))
+  access_token = token_data.get("access_token")
+  user = fetch_user_profile(access_token)
+  api_key_data = create_api_key(user=user, description="Home Assistant integration", expires_at=None)
+  ha_callback = state_payload["ha_callback"]
+  api_key = api_key_data["api_key"]
+
+  html = f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>FreeAPI Home Assistant Login</title>
+  </head>
+  <body>
+    <form id="freeapi-ha-bridge" method="post" action="{escape(ha_callback, quote=True)}">
+      <input type="hidden" name="api_key" value="{escape(api_key, quote=True)}">
+    </form>
+    <p>Completing sign-in with Home Assistant...</p>
+    <script>document.getElementById("freeapi-ha-bridge").submit();</script>
+  </body>
+</html>"""
+  response = HTMLResponse(content=html, status_code=status.HTTP_200_OK)
+  response.delete_cookie(AUTH_HA_STATE_COOKIE_NAME, path="/")
   return response
 
 def build_logout_response() -> RedirectResponse:

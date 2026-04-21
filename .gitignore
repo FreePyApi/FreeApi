@@ -33,7 +33,5 @@ tmp/
 *.tmp
 
 # dotenv
-.env
-.env.local
-.env.*.local
-.vercel
+.env*
+!.env.example

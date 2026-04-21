@@ -1,0 +1,17 @@
+{
+  "domain": "freeapi",
+  "name": "FreeAPI",
+  "codeowners": [
+    "@FreePyApi"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/FreePyApi/FreeApi/tree/main/home-assistant",
+  "issue_tracker": "https://github.com/FreePyApi/FreeApi/issues",
+  "requirements": [],
+  "version": "1.0.1",
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "loggers": [
+    "custom_components.freeapi"
+  ]
+}

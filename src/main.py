@@ -280,10 +280,20 @@ def _build_versioned_gateway(current_app: FastAPI) -> FastAPI:
     from .config.security import build_login_response
     return build_login_response(request)
 
+  @gateway_app.get("/auth/login/ha", tags=["Auth"])
+  def gateway_auth_login_ha(request: Request, ha_callback: str):
+    from .config.security import build_ha_login_response
+    return build_ha_login_response(request, ha_callback=ha_callback)
+
   @gateway_app.get("/auth/callback", tags=["Auth"])
   def gateway_auth_callback(request: Request, code: str, state: str):
     from .config.security import build_callback_response
     return build_callback_response(request, code=code, state=state)
+
+  @gateway_app.get("/auth/callback/ha", tags=["Auth"])
+  def gateway_auth_callback_ha(request: Request, code: str, state: str):
+    from .config.security import build_ha_callback_response
+    return build_ha_callback_response(request, code=code, state=state)
 
   @gateway_app.post("/auth/logout", tags=["Auth"])
   def gateway_auth_logout(request: Request):

@@ -1,0 +1,66 @@
+{
+  "title": "FreeAPI",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose installation mode",
+        "description": "Set up FreeAPI for either a self-hosted addon or the official API.",
+        "data": {
+          "mode": "Installation mode"
+        }
+      },
+      "self_hosted": {
+        "title": "Self-hosted setup",
+        "description": "Connect to your addon or self-hosted FreeAPI instance.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "api_key": "API key",
+          "api_version": "API version",
+          "poll_interval": "Poll interval (seconds)"
+        }
+      },
+      "official": {
+        "title": "Official API setup",
+        "description": "Configure official API access and choose OAuth2 or API key.",
+        "data": {
+          "base_url": "Official API base URL",
+          "verify_ssl": "Verify SSL certificate",
+          "auth_mode": "Authentication mode",
+          "api_version": "API version",
+          "poll_interval": "Poll interval (seconds)"
+        }
+      },
+      "official_api_key": {
+        "title": "Official API key",
+        "description": "Paste your FreeAPI API key.",
+        "data": {
+          "api_key": "API key"
+        }
+      },
+      "official_oauth_app": {
+        "title": "OAuth2 authorization",
+        "description": "Continue in your browser to sign in with GitHub through the official FreeAPI callback bridge."
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to FreeAPI",
+      "missing_home_assistant_url": "Configure an external Home Assistant URL before starting OAuth2",
+      "oauth_exchange_failed": "OAuth token exchange failed"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "FreeAPI options",
+        "description": "Update polling behavior and target API version.",
+        "data": {
+          "poll_interval": "Poll interval (seconds)",
+          "api_version": "API version"
+        }
+      }
+    }
+  }
+}
