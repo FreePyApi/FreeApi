@@ -4,10 +4,14 @@ uvicorn
 python-dotenv
 authlib
 itsdangerous
+argon2-cffi
+psycopg[binary]
+redis
 pytest
 httpx
 
-# modules/datetime
+# Modules
 pytz
-# modules/geo
 geopy
+numpy
+dnspython

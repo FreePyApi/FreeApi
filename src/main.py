@@ -1,29 +1,34 @@
 import logging
 import time
 import importlib.util
-import os
+import sys
+import types
 import re
+import json
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Body, FastAPI, Request, HTTPException, Query, Path as ParamPath
+from fastapi import FastAPI, Request, HTTPException, APIRouter
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import settings
-from .logging import configure_logging
+from .config.config import settings
+from .config.logging import configure_logging
 from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.docs_rate_limit import DocsRateLimitMiddleware
-from .security import (
-  auth_guard,
-  build_callback_response,
-  build_login_response,
-  build_logout_response,
-  get_authenticated_user,
-  is_oauth_enabled,
-  is_rate_limit_enabled,
+from .config.security import auth_guard
+from .routes import (
+  auth_router,
+  datetime_router,
+  geo_router,
+  math_router,
+  random_router,
+  root_router,
+  text_router,
+  uuid_hashing_router,
+  network_router,
 )
 
 configure_logging()
@@ -75,7 +80,7 @@ if settings.oauth_enabled and settings.docs_rate_limit_enabled:
 
 @app.middleware("http")
 async def request_context_and_logging(request: Request, call_next):
-  request.state.timestamp = int(time())
+  request.state.timestamp = int(time.time())
   logger.info("request_started", extra={"request_id": f"{id(request)}"})
   try:
     response = await call_next(request)
@@ -83,6 +88,37 @@ async def request_context_and_logging(request: Request, call_next):
     logger.exception("request_failed")
     raise
   logger.info("request_finished", extra={"request_id": f"{id(request)}"})
+  return response
+
+
+@app.middleware("http")
+async def module_error_code_to_status(request: Request, call_next):
+  response = await call_next(request)
+
+  # If a module returns {"error": ..., "code": ...}, use that code as HTTP status.
+  if response.status_code >= 400:
+    return response
+
+  if response.media_type != "application/json":
+    return response
+
+  body = getattr(response, "body", None)
+  if not body:
+    return response
+
+  try:
+    payload = json.loads(body)
+  except (TypeError, json.JSONDecodeError):
+    return response
+
+  if not isinstance(payload, dict):
+    return response
+
+  error = payload.get("error")
+  code = payload.get("code")
+  if isinstance(error, str) and isinstance(code, int) and not isinstance(code, bool) and 100 <= code <= 599:
+    response.status_code = code
+
   return response
 
 #########################
@@ -111,270 +147,15 @@ async def unhandled_exception_handler(_: Request, exc: Exception):
   logger.exception("unhandled_exception")
   return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-#########################
-# Root and Utility Endpoints
-#########################
-@app.get("/", tags=["Root"])
-def root():
-  return {"message": "Welcome to the FreeAPI!", "version": f"v{CURRENT_API_VERSION}", "documentation": f"{CURRENT_API_PREFIX}/docs" }
-
-@app.get("/favicon.ico", include_in_schema=False, tags=["Assets"])
-def favicon_ico():
-  return FileResponse(ASSETS_DIR / "favicon.png")
-
-
-@app.get("/favicon.svg", include_in_schema=False, tags=["Assets"])
-def favicon_svg():
-  return FileResponse(ASSETS_DIR / "favicon.svg")
-
-@app.get("/status", tags=["Status"])
-def get_status():
-  return {"status": "running", "version": CURRENT_API_VERSION}
-
-
-@app.get("/live", tags=["Status"])
-def live():
-  return {"status": "alive"}
-
-
-@app.get("/ready", tags=["Status"])
-def ready():
-  return {
-    "status": "ready",
-    "version": CURRENT_API_VERSION,
-    "oauth_enabled": settings.oauth_enabled,
-    "rate_limit_enabled": settings.rate_limit_enabled,
-  }
-
-# Organization
-@app.get("/github", tags=["Organization"])
-def get_github():
-  return {"github_repo": "https://github.com/FreePyApi/FreeApi", "github_organization": "https://github.com/FreePyApi" }
-
-#########################
-# Authentication Endpoints
-#########################
-@app.get("/auth/status", tags=["Auth"])
-def auth_status():
-  return {
-    "enabled": is_oauth_enabled(),
-    "provider": "github",
-  }
-
-
-@app.get("/auth/login", tags=["Auth"])
-def auth_login(request: Request):
-  return build_login_response(request)
-
-
-@app.get("/auth/callback", tags=["Auth"])
-def auth_callback(request: Request, code: str, state: str):
-  return build_callback_response(request, code=code, state=state)
-
-
-@app.post("/auth/logout", tags=["Auth"])
-def auth_logout():
-  return build_logout_response()
-
-
-@app.get("/auth/me", tags=["Auth"])
-def auth_me(request: Request):
-  user = get_authenticated_user(request)
-  if user is None:
-    raise HTTPException(status_code=401, detail="Authentication required")
-  return {"authenticated": True, "user": user}
-
-#########################
-# TEXT
-#########################
-from .modules import text as mtext # We give modules an M prefix
-
-# Counting
-@app.post("/text/count", tags=["Text/Counting"])
-def text_count(text: str = Body(..., min_length=1, max_length=10000)):
-  return mtext.count(text)
-
-@app.post("/text/count/words", tags=["Text/Counting"])
-def text_count_words(text: str = Body(..., min_length=1, max_length=10000)):
-  return mtext.count_words(text)
-
-@app.post("/text/count/characters", tags=["Text/Counting"])
-def text_count_characters(text: str = Body(..., min_length=1, max_length=10000)):
-  return mtext.count_characters(text)
-
-@app.post("/text/count/sentences", tags=["Text/Counting"])
-def text_count_sentences(text: str = Body(..., min_length=1, max_length=10000)):
-  return mtext.count_sentences(text)
-
-@app.post("/text/count/paragraphs", tags=["Text/Counting"])
-def text_count_paragraphs(text: str = Body(..., min_length=1, max_length=10000)):
-  return mtext.count_paragraphs(text)
-
-# Password
-@app.post("/text/password/strength", tags=["Text/Password"])
-def text_password_strength(password: str = Body(..., embed=True, min_length=4, max_length=1024)):
-  return mtext.password_strength(password)
-
-@app.post("/text/password/generate", tags=["Text/Password"])
-def text_password_generate(length: int = Query(12, ge=4, le=256), charset: Optional[str] = Query(None, max_length=500)):
-  return mtext.generate_password(length=length, charset=charset)
-
-@app.get("/text/password/disclaimer", tags=["Text/Password"])
-def text_password_disclaimer():
-  return mtext.password_disclaimer()
-
-# Formatting
-@app.post("/text/formatting/slugify", tags=["Text/Formatting"])
-def text_format_slugify(text: str = Body(..., min_length=1, max_length=2000)):
-  return mtext.slugify(text=text)
-
-@app.post("/text/formatting/camel_case", tags=["Text/Formatting"])
-def text_camel_case(text: str = Body(..., min_length=1, max_length=2000)):
-  return mtext.camel_case(text=text)
-
-@app.post("/text/formatting/pascal_case", tags=["Text/Formatting"])
-def text_pascal_case(text: str = Body(..., min_length=1, max_length=2000)):
-  return mtext.pascal_case(text=text)
-
-# Other
-@app.get("/text/lorem_ipsum/{length}", tags=["Text/Other"])
-def text_lorem_ipsum(length: int = ParamPath(..., ge=1, le=1000)):
-  return mtext.lorem_ipsum(length=length)
-
-#########################
-# DateTime
-#########################
-from .modules import datetime as mdatetime
-from time import time
-
-@app.get("/datetime/unix", tags=["DateTime"])
-def get_unix_timestamp():
-  return mdatetime.unix_timestamp()
-
-@app.get("/datetime/format", tags=["DateTime"])
-def format_time(timestamp: Optional[int] = None, format: str = Query("%Y-%m-%d %H:%M:%S", max_length=100), timezone: str = Query("UTC", max_length=50)):
-  if timestamp is None:
-    timestamp = int(time())
-  return mdatetime.format_time(timestamp, format, timezone)
-
-@app.get("/datetime/timezones", tags=["DateTime"])
-def get_timezones():
-  return mdatetime.get_timezones()
-
-@app.get("/datetime/convert/timezone", tags=["DateTime"])
-def convert_timezone(timestamp: Optional[int] = None, from_tz: str = Query("UTC", max_length=50), to_tz: str = Query("UTC", max_length=50)):
-  if timestamp is None:
-    timestamp = int(time())
-  return mdatetime.convert_timezone(timestamp, from_tz, to_tz)
-
-@app.get("/datetime/time_difference", tags=["DateTime"])
-def time_difference(timestamp1: int = Query(...), timestamp2: int = Query(...)):
-  return mdatetime.time_difference(timestamp1, timestamp2)
-
-@app.get("/datetime/is_leap_year", tags=["DateTime"])
-def is_leap_year(year: int = Query(..., ge=1, le=9999)):
-  return mdatetime.is_leap_year(year)
-
-@app.get("/datetime/day_of_week", tags=["DateTime"])
-def day_of_week(timestamp: Optional[int] = None, timezone: str = Query("UTC", max_length=50)):
-  if timestamp is None:
-    timestamp = int(time())
-  return mdatetime.day_of_week(timestamp, timezone)
-
-@app.get("/datetime/summer_time", tags=["DateTime"])
-def summer_time(timestamp: Optional[int] = None, timezone: str = Query("UTC", max_length=50)):
-  if timestamp is None:
-    timestamp = int(time())
-  return mdatetime.summer_time(timestamp, timezone)
-
-#########################
-# Geo
-#########################
-from .modules import geo as mgeo
-
-@app.post("/geo/geocode", tags=["Geo"])
-def geo_geocode(address: str = Body(..., min_length=1, max_length=500)):
-  return mgeo.geocode(address=address)
-
-@app.post("/geo/is_sea", tags=["Geo"])
-def geo_is_sea(latitude: float = Body(..., ge=-90, le=90), longitude: float = Body(..., ge=-180, le=180)):
-  return mgeo.is_sea(latitude=latitude, longitude=longitude)
-
-@app.post("/geo/get_timezone", tags=["Geo"])
-def geo_get_tz(latitude: float = Body(..., ge=-90, le=90), longitude: float = Body(..., ge=-180, le=180)):
-  return mgeo.get_timezone(latitude=latitude, longitude=longitude)
-
-@app.post("/geo/get_address", tags=["Geo"])
-def geo_get_addr(latitude: float = Body(..., ge=-90, le=90), longitude: float = Body(..., ge=-180, le=180)):
-  return mgeo.get_address(latitude=latitude, longitude=longitude)
-
-#########################
-# UUID and Hashing
-#########################
-from .modules import uuid_hashing as muuid_hashing
-@app.get("/uuid/generate/{version}", tags=["UUID and Hashing"])
-def uuid_generate(version: int = ParamPath(..., ge=1, le=5)):
-  return muuid_hashing.generate_uuid(version=version)
-
-@app.get("/uuid/validate", tags=["UUID and Hashing"])
-def uuid_validate(uuid_string: str = Query(..., min_length=1, max_length=100)):
-  return muuid_hashing.validate_uuid(uuid_string=uuid_string)
-
-@app.get("/uuid/decode", tags=["UUID and Hashing"])
-def uuid_decode(uuid_string: str = Query(..., min_length=1, max_length=200)):
-  return muuid_hashing.decode_uuid(uuid_string=uuid_string)
-
-@app.post("/hash/string", tags=["UUID and Hashing"])
-def hash_string(text: str = Body(..., min_length=1, max_length=5000), algorithm: str = Body("sha256", min_length=1, max_length=50)):
-  return muuid_hashing.hash_string(text=text, algorithm=algorithm)
-
-@app.post("/hash/base64/encode", tags=["UUID and Hashing"])
-def base64_encode(text: str = Body(..., min_length=1, max_length=10000)):
-  return muuid_hashing.base64_encode(text=text)
-
-@app.post("/hash/base64/decode", tags=["UUID and Hashing"])
-def base64_decode(encoded_text: str = Body(..., min_length=1, max_length=10000)):
-  return muuid_hashing.base64_decode(encoded_text=encoded_text)
-
-#########################
-# Math
-#########################
-from .modules import math as mmath
-
-@app.post("/math/units/convert", tags=["Math", "Units"])
-def convert_units(value: float = Body(...), conversion_type: str = Body(..., min_length=1, max_length=200), return_format: str = Body(..., min_length=1, max_length=50)):
-  return mmath.convert_units(value=value, conversion_type=conversion_type, return_format=return_format)
-
-@app.get("/math/units/types", tags=["Math", "Units"])
-def get_conversion_types():
-  return mmath.get_conversion_types()
-
-@app.get("/math/units/names", tags=["Math", "Units"])
-def get_unit_names():
-  return mmath.get_unit_names()
-
-@app.get("/math/check/prime", tags=["Math"])
-def check_prime(number: int = Query(..., ge=0)):
-  return mmath.check_prime(number=number)
-
-@app.get("/math/check/odd_even", tags=["Math"])
-def check_odd_even(number: int = Query(...)):
-  return mmath.check_odd_even(number=number)
-
-@app.get("/math/factorial", tags=["Math"])
-def factorial(n: int = Query(..., ge=0, le=1000)):
-  return mmath.factorial(n=n)
-
-@app.get("/math/random_number", tags=["Math"])
-def random_number(min: int = Query(0, ge=-2147483648), max: int = Query(100, ge=-2147483648)):
-  if max < min:
-    raise HTTPException(status_code=400, detail="max must be >= min")
-  return mmath.random_number(min=min, max=max)
-
-@app.get("/math/fibonacci", tags=["Math"])
-def fibonacci(n: int = Query(..., ge=0, le=10000)):
-  return mmath.fibonacci(n=n)
-
+app.include_router(root_router)
+app.include_router(auth_router)
+app.include_router(text_router)
+app.include_router(datetime_router)
+app.include_router(geo_router)
+app.include_router(uuid_hashing_router)
+app.include_router(math_router)
+app.include_router(random_router)
+app.include_router(network_router)
 #########################
 # Versioned Gateway Logic
 #########################
@@ -382,6 +163,13 @@ def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
   loaded_apps: list[tuple[str, FastAPI]] = []
   if not archive_root.is_dir():
     return loaded_apps
+
+  # Ensure a private top-level package exists so relative imports inside archives work
+  base_pkg_name = "freeapi_archives"
+  if base_pkg_name not in sys.modules:
+    base_pkg = types.ModuleType(base_pkg_name)
+    base_pkg.__path__ = [str(archive_root)]
+    sys.modules[base_pkg_name] = base_pkg
 
   for version_dir in sorted(archive_root.iterdir()):
     if not version_dir.is_dir() or not VERSION_PATH_RE.match(f"/{version_dir.name}/"):
@@ -391,28 +179,70 @@ def _load_archive_apps(archive_root: Path) -> list[tuple[str, FastAPI]]:
     if version_prefix == CURRENT_API_PREFIX:
       continue
 
-    main_file = version_dir / "main.py"
-    if not main_file.is_file():
+    modules_dir = version_dir / "modules"
+    routes_dir = version_dir / "routes"
+    assets_dir = version_dir / "assets"
+    if not modules_dir.is_dir() or not routes_dir.is_dir() or not assets_dir.is_dir():
       continue
 
-    module_name = f"archive_{version_dir.name.replace('.', '_')}_main"
-    spec = importlib.util.spec_from_file_location(module_name, main_file)
-    if spec is None or spec.loader is None:
-      continue
+    # Create a package name safe for Python identifiers (replace dots with underscores)
+    package_name = f"{base_pkg_name}.{version_dir.name.replace('.', '_')}"
 
-    module = importlib.util.module_from_spec(spec)
+    # Ensure a package module exists so relative imports inside the archive work.
+    # Keep BASE_DIR as a fallback so shared modules like config/services/models can
+    # be reused without duplicating them inside each archive version.
+    if package_name not in sys.modules:
+      pkg = types.ModuleType(package_name)
+      pkg.__path__ = [str(version_dir), str(BASE_DIR)]
+      sys.modules[package_name] = pkg
+
+    routes_package_name = f"{package_name}.routes"
+    if routes_package_name not in sys.modules:
+      routes_pkg = types.ModuleType(routes_package_name)
+      routes_pkg.__path__ = [str(routes_dir)]
+      sys.modules[routes_package_name] = routes_pkg
+
+    archive_app = FastAPI(
+      title=f"FreeAPI {version_dir.name}",
+      description=f"Archived API version {version_dir.name}",
+      version=version_dir.name.lstrip("v"),
+      docs_url="/docs",
+      redoc_url="/redoc",
+      openapi_url="/openapi.json",
+    )
+
+    # Expose archived static assets as /vX.Y.Z/assets/*
+    archive_app.mount("/assets", StaticFiles(directory=assets_dir), name=f"assets_{version_dir.name.replace('.', '_')}")
+
     try:
-      spec.loader.exec_module(module)
+      for route_file in sorted(routes_dir.glob("*.py")):
+        if route_file.name == "__init__.py":
+          continue
+
+        module_full_name = f"{routes_package_name}.{route_file.stem}"
+        spec = importlib.util.spec_from_file_location(module_full_name, route_file)
+        if spec is None or spec.loader is None:
+          continue
+
+        module = importlib.util.module_from_spec(spec)
+        module.__package__ = routes_package_name
+        sys.modules[module_full_name] = module
+        spec.loader.exec_module(module)
+
+        router = getattr(module, "router", None)
+        if isinstance(router, APIRouter):
+          archive_app.include_router(router)
     except Exception:
       logger.exception("failed_to_load_archive_app", extra={"archive_version": version_dir.name})
+      for module_name in list(sys.modules.keys()):
+        if module_name.startswith(f"{package_name}."):
+          sys.modules.pop(module_name, None)
+      sys.modules.pop(package_name, None)
       continue
 
-    archive_app = getattr(module, "app", None)
-    if isinstance(archive_app, FastAPI):
-      loaded_apps.append((version_prefix, archive_app))
+    loaded_apps.append((version_prefix, archive_app))
 
   return loaded_apps
-
 
 def _resolve_archive_root() -> Path:
   for archive_dir_name in ("archive", "archives"):
@@ -421,7 +251,6 @@ def _resolve_archive_root() -> Path:
       return archive_root
 
   return BASE_DIR.parent / "archive"
-
 
 def _build_versioned_gateway(current_app: FastAPI) -> FastAPI:
   gateway_app = FastAPI(
@@ -433,26 +262,136 @@ def _build_versioned_gateway(current_app: FastAPI) -> FastAPI:
     openapi_url=None,
   )
 
+  # Expose a small set of unversioned auth endpoints on the gateway so
+  # external OAuth providers can use a stable `/auth/*` redirect URI
+  # without being redirected to a versioned path.
+  @gateway_app.get("/auth/status", tags=["Auth"])
+  def gateway_auth_status(request: Request):
+    from .config.security import is_oauth_enabled
+    from .config.api_keys import is_api_key_auth_enabled
+    return {
+      "enabled": is_oauth_enabled(),
+      "provider": "github",
+      "api_key_auth_enabled": is_api_key_auth_enabled(),
+    }
+
+  @gateway_app.get("/auth/login", tags=["Auth"])
+  def gateway_auth_login(request: Request):
+    from .config.security import build_login_response
+    return build_login_response(request)
+
+  @gateway_app.get("/auth/login/ha", tags=["Auth"])
+  def gateway_auth_login_ha(request: Request, ha_callback: str):
+    from .config.security import build_ha_login_response
+    return build_ha_login_response(request, ha_callback=ha_callback)
+
+  @gateway_app.get("/auth/callback", tags=["Auth"])
+  def gateway_auth_callback(request: Request, code: str, state: str):
+    from .config.security import build_callback_response
+    return build_callback_response(request, code=code, state=state)
+
+  @gateway_app.get("/auth/callback/ha", tags=["Auth"])
+  def gateway_auth_callback_ha(request: Request, code: str, state: str):
+    from .config.security import build_ha_callback_response
+    return build_ha_callback_response(request, code=code, state=state)
+
+  @gateway_app.post("/auth/logout", tags=["Auth"])
+  def gateway_auth_logout(request: Request):
+    from .config.security import build_logout_response
+    return build_logout_response()
+
+  @gateway_app.get("/auth/me", tags=["Auth"])
+  def gateway_auth_me(request: Request):
+    from .config.security import get_authenticated_user
+    user = get_authenticated_user(request)
+    if user is None:
+      raise HTTPException(status_code=401, detail="Authentication required")
+    return {"authenticated": True, "user": user}
+
   @gateway_app.middleware("http")
   async def redirect_to_latest_version(request: Request, call_next):
     path = request.url.path
+
+    # If path already contains a full semantic version (/vX.Y.Z), pass through.
     if VERSION_PATH_RE.match(path):
       return await call_next(request)
 
-    target_path = f"{CURRENT_API_PREFIX}{path}" if path != "/" else f"{CURRENT_API_PREFIX}/"
-    query = request.url.query
-    if query:
-      target_path = f"{target_path}?{query}"
+    # Build a list of available full-version prefixes (e.g. /v1.0.0, /v1.2.3)
+    available = [CURRENT_API_PREFIX] + [vp for vp, _ in getattr(gateway_app, "_mounted_archives", [])]
 
-    return RedirectResponse(url=target_path, status_code=307)
+    def parse_version_prefix(p: str):
+      # p is like '/v1.2.3' -> return (major, minor, patch) or None
+      m = re.match(r"^/v(\d+)\.(\d+)\.(\d+)$", p)
+      if not m:
+        return None
+      return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+    versions = []
+    for p in available:
+      v = parse_version_prefix(p)
+      if v is not None:
+        versions.append((v[0], v[1], v[2], p))
+
+    # Helper to find the latest full version matching major and optional minor
+    def find_latest(major: int, minor: Optional[int] = None) -> Optional[str]:
+      candidates = [t for t in versions if t[0] == major and (minor is None or t[1] == minor)]
+      if not candidates:
+        return None
+      # sort by (major, minor, patch)
+      candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+      return candidates[0][3]
+
+    # Match /v<major> or /v<major>.<minor>
+    m_major_minor = re.match(r"^/v(\d+)\.(\d+)(/.*)?$", path)
+    m_major = re.match(r"^/v(\d+)(/.*)?$", path)
+
+    target_prefix = None
+    remainder = path
+    if m_major_minor:
+      major = int(m_major_minor.group(1))
+      minor = int(m_major_minor.group(2))
+      remainder = m_major_minor.group(3) or "/"
+      target_prefix = find_latest(major, minor)
+    elif m_major:
+      major = int(m_major.group(1))
+      remainder = m_major.group(2) or "/"
+      # avoid matching full vX.Y.Z (handled above)
+      if re.match(r"^/v\d+\.\d+\.\d+(/.*)?$", path):
+        return await call_next(request)
+      target_prefix = find_latest(major, None)
+
+    # If we found a target prefix for the short version, redirect there.
+    if target_prefix:
+      # ensure trailing slash handling
+      target_path = f"{target_prefix}{remainder}" if remainder != "/" else f"{target_prefix}/"
+      query = request.url.query
+      if query:
+        target_path = f"{target_path}?{query}"
+      return RedirectResponse(url=target_path, status_code=307)
+
+    # Fallback: redirect unversioned root to current API prefix
+    # Do not redirect OAuth auth paths (e.g. /auth/*) so external providers
+    # that use a stable unversioned redirect URI (like /auth/callback)
+    # will reach the unversioned handler instead of being rewritten.
+    if path == "/" or (not path.startswith("/v") and not path.startswith("/auth")):
+      target_path = f"{CURRENT_API_PREFIX}{path}" if path != "/" else f"{CURRENT_API_PREFIX}/"
+      query = request.url.query
+      if query:
+        target_path = f"{target_path}?{query}"
+      return RedirectResponse(url=target_path, status_code=307)
+
+    # No matching version found; let the app handle (likely 404)
+    return await call_next(request)
 
   gateway_app.mount(CURRENT_API_PREFIX, current_app)
 
   archive_root = _resolve_archive_root()
-  for version_prefix, archive_app in _load_archive_apps(archive_root):
+  mounted = _load_archive_apps(archive_root)
+  # keep a reference of mounted archives for middleware decisions
+  setattr(gateway_app, "_mounted_archives", mounted)
+  for version_prefix, archive_app in mounted:
     gateway_app.mount(version_prefix, archive_app)
 
   return gateway_app
-
 
 app = _build_versioned_gateway(app)

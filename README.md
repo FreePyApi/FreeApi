@@ -8,18 +8,27 @@
 
 FreeAPI is a free and open-source API that provides access to various data and services. It is designed to be easy to use and integrate into your applications.
 
+## Home Assistant
+
+- Home Assistant package overview: `home-assistant/README.md`
+- Integration files: `home-assistant/integration/custom_components/freeapi`
+- Addon files: `home-assistant/addon/freeapi`
+
+The Home Assistant integration supports both self-hosted addon mode and official API mode, with OAuth2 or API key authentication.
+
 ## API Versioning
 
-- The latest API version is currently `v1.0.0`.
-- Canonical endpoints are versioned: `/v1.0.0/<endpoint>`.
+- The latest API version is currently `v1.0.1`.
+- Canonical endpoints are versioned: `/v1.0.1/<endpoint>`.
 - Unversioned paths (for example `/status`, `/docs`, `/openapi.json`) redirect to the latest versioned path.
-- Archived versions live under `archive/vX.Y.Z/main.py` and are mounted automatically as `/vX.Y.Z/*` when present.
+- Archived versions live under `archives/vX.Y.Z/` and only contain `routes/`, `modules/`, and `assets/` directories.
+- Archive versions are mounted automatically as `/vX.Y.Z/*` when the required directories are present.
 
 Examples:
 
-- `/status` -> redirects to `/v1.0.0/status`
-- `/docs` -> redirects to `/v1.0.0/docs`
-- `/openapi.json` -> redirects to `/v1.0.0/openapi.json`
+- `/status` -> redirects to `/v1.0.1/status`
+- `/docs` -> redirects to `/v1.0.1/docs`
+- `/openapi.json` -> redirects to `/v1.0.1/openapi.json`
 
 ## Running the API
 
@@ -31,17 +40,15 @@ Examples:
 You can run the API using Docker. Make sure you have Docker installed on your machine, then navigate to the `docker` directory and run the following command:
 
 ```bash
-mkdir -p freeapi
-cd freeapi
-curl -O https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/.env.example
+cd freeapi/docker
+cp .env.example .env
 nano .env # edit the .env file
-docker-compose up -d
+docker compose up -d
 ```
 
-This will build the Docker image and start the API in a container. The API will be accessible at `http://localhost:8000`.
+This will build the API image locally and start the API together with Postgres and Redis. The API will be accessible at `http://localhost:8000`.
 
-The Docker image includes the `archive/` directory for older API versions and sets `FREEAPI_CURRENT_VERSION=1.0.0` by default.
+The Docker image includes the `archives/` directory for older API versions and sets `FREEAPI_CURRENT_VERSION=1.0.0` in the compose example.
 
 ### Using Podman
 
@@ -49,10 +56,8 @@ If you prefer using Podman, you can run the API with the following command:
 (Podman supports docker images, so you can use the same docker-compose.yml file)
 
 ```bash
-mkdir -p freeapi
-cd freeapi
-curl -o podman-compose.yml https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/freepyapi/freeapi/main/docker/.env.example
+cd freeapi/docker
+cp .env.example .env
 nano .env # edit the .env file
 podman-compose up -d
 ```
@@ -76,7 +81,7 @@ This will start the API, and it will be accessible at `http://localhost:8000`.
 You can override the latest version prefix by setting `FREEAPI_CURRENT_VERSION`, for example:
 
 ```bash
-FREEAPI_CURRENT_VERSION=1.0.0 uvicorn src.main:app --host 0.0.0.0 --port 8000
+FREEAPI_CURRENT_VERSION=1.0.1 uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Security configuration
@@ -85,7 +90,12 @@ FREEAPI_CURRENT_VERSION=1.0.0 uvicorn src.main:app --host 0.0.0.0 --port 8000
 - Optional OAuth2 login is enabled when both `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are present in `.env`.
 - The OAuth access token is stored in an `HttpOnly` cookie.
 - By default the OAuth flow uses GitHub endpoints; you can override them with `OAUTH_AUTHORIZE_URL`, `OAUTH_TOKEN_URL`, `OAUTH_USERINFO_URL`, and `OAUTH_REDIRECT_URI`.
+- The Home Assistant official integration OAuth bridge uses stable unversioned callbacks at `/auth/login/ha` and `/auth/callback/ha`, then mints a FreeAPI API key for Home Assistant.
+- API keys are stored in Postgres when `POSTGRES_URL` is set.
+- Redis backs rate limiting when `REDIS_URL` is set.
+- API keys are hashed with Argon2 and a pepper from `API_KEY_PEPPER`.
+- Users can create, list, and delete API keys under `/v1.0.0/auth/api-keys`.
 
 ## API Documentation
 
-The API documentation is available at `http://localhost:8000/v1.0.0/docs` when you run the API locally. Unversioned docs and OpenAPI endpoints redirect to the latest version. It provides detailed information about the available endpoints, request parameters, and response formats. You can also access the documentation online at [freeapi.szabee.me/docs](https://freeapi.szabee.me/docs).
+The API documentation is available at `http://localhost:8000/v1.0.1/docs` when you run the API locally. Unversioned docs and OpenAPI endpoints redirect to the latest version. It provides detailed information about the available endpoints, request parameters, and response formats. You can also access the documentation online at [freeapi.szabee.me/docs](https://freeapi.szabee.me/docs).

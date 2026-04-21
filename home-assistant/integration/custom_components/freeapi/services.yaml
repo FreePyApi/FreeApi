@@ -1,0 +1,39 @@
+call_endpoint:
+  name: Call FreeAPI endpoint
+  description: Call a FreeAPI endpoint on the configured instance.
+  fields:
+    entry_id:
+      name: Config entry ID
+      description: Optional entry_id if multiple FreeAPI instances are configured.
+      example: 01HZABCDEF0123456789
+      selector:
+        text:
+    endpoint:
+      name: Endpoint path
+      description: Endpoint path relative to version root, for example /datetime/unix.
+      required: true
+      example: /status
+      selector:
+        text:
+    method:
+      name: HTTP method
+      description: HTTP method used for the request.
+      default: GET
+      selector:
+        select:
+          options:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+    params:
+      name: Query parameters
+      description: Optional query parameters object.
+      selector:
+        object:
+    payload:
+      name: JSON payload
+      description: Optional JSON body for write endpoints.
+      selector:
+        object:

@@ -1,0 +1,48 @@
+name: FreeAPI
+version: 1.0.1
+slug: freeapi
+description: Run FreeAPI as a Home Assistant addon.
+url: https://github.com/FreePyApi/FreeApi/tree/main/home-assistant
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: services
+boot: auto
+init: false
+panel_icon: mdi:api
+ports:
+  8000/tcp: null
+ports_description:
+  8000/tcp: FreeAPI HTTP endpoint
+options:
+  port: 8000
+  api_version: 1.0.1
+  cors_origins: ""
+  rate_limit_enabled: true
+  rate_limit_max_requests: 120
+  rate_limit_window_seconds: 60
+  postgres_url: ""
+  redis_url: ""
+  oauth_client_id: ""
+  oauth_client_secret: ""
+  session_secret: ""
+  api_key_pepper: ""
+  env_file: ""
+schema:
+  port: port
+  api_version: str
+  cors_origins: str?
+  rate_limit_enabled: bool
+  rate_limit_max_requests: int(1,)
+  rate_limit_window_seconds: int(1,3600)
+  postgres_url: str?
+  redis_url: str?
+  oauth_client_id: str?
+  oauth_client_secret: str?
+  session_secret: str?
+  api_key_pepper: str?
+  env_file: str?
+image: ghcr.io/freepyapi/freeapi-addon-{arch}

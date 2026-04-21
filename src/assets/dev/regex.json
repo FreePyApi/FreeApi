@@ -1,0 +1,1 @@
+{"mappings":{"digit":"\\d","word":"\\w","whitespace":"\\s","any":".","start":"^","end":"$","optional":"?","zero_or_more":"*","one_or_more":"+","group_start":"(","group_end":")","alternation":"|"}}
