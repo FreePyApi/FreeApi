@@ -7,6 +7,7 @@ This folder contains both Home Assistant deliverables:
 
 ## Integration install (HACS)
 
+[![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FreePyApi&repository=FreeApi&category=integration)
 [![Add Integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=freeapi)
 
 1. Add this repository as a custom HACS repository.
