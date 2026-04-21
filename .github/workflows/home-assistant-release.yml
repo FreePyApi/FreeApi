@@ -31,6 +31,13 @@ jobs:
       - name: Validate integration source compiles
         run: python -m compileall home-assistant/integration/custom_components/freeapi
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Validate addon image build
         run: docker build -f home-assistant/addon/freeapi/Dockerfile home-assistant/addon/freeapi
 
