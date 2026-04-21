@@ -1,7 +1,5 @@
 FROM ghcr.io/freepyapi/freeapi:latest
 
-COPY run.sh /run.sh
-
-RUN chmod +x /run.sh
+COPY --chmod=755 run.sh /run.sh
 
 CMD ["/run.sh"]
