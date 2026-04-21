@@ -3,9 +3,9 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-import src.api_keys as api_keys_module
+import src.config.api_keys as api_keys_module
 from src.main import app
-from src.security import serialize_auth_payload
+from src.config.security import serialize_auth_payload
 
 
 client = TestClient(app)

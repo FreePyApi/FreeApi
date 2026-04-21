@@ -80,7 +80,7 @@ if settings.oauth_enabled and settings.docs_rate_limit_enabled:
 
 @app.middleware("http")
 async def request_context_and_logging(request: Request, call_next):
-  request.state.timestamp = int(time())
+  request.state.timestamp = int(time.time())
   logger.info("request_started", extra={"request_id": f"{id(request)}"})
   try:
     response = await call_next(request)
